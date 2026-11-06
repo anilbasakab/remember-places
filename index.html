@@ -1,0 +1,2028 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="A personal map of Patna: home, office, landmarks, roads, road distances and sketch maps.">
+<meta name="theme-color" content="#0e6670"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}*,*::before,*::after{box-sizing:border-box}body{margin:0;font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<script>
+// Stand-alone mode (outside claude.ai): saves changes in this browser and seeds from seed.json
+(function () {
+  if (window.claude) return;
+  const KEY = "patna-places:";
+  const read = (c) => { try { const v = localStorage.getItem(KEY + c); return v ? JSON.parse(v) : null; } catch { return null; } };
+  const write = (c, v) => { try { localStorage.setItem(KEY + c, JSON.stringify(v)); } catch {} };
+  let SEED = null; const seedP = fetch("seed.json", { cache: "no-cache" }).then((r) => r.json()).then((s) => (SEED = s)).catch(() => (SEED = {}));
+  const subs = {};
+  const getCol = (c) => read(c) || (SEED && SEED[c] ? JSON.parse(JSON.stringify(SEED[c])) : {});
+  const snap = (c) => { const o = getCol(c); return { docs: Object.entries(o).map(([id, d]) => ({ id, exists: true, data: () => d, metadata: {} })), size: Object.keys(o).length, empty: !Object.keys(o).length, docChanges: () => [], metadata: {} }; };
+  const emit = (c) => (subs[c] || []).forEach((f) => { try { f(snap(c)); } catch (e) { console.error(e); } });
+  const mut = (c, fn) => { const o = getCol(c); fn(o); write(c, o); setTimeout(() => emit(c), 0); };
+  const db = {
+    collection(c) {
+      return {
+        path: c,
+        onSnapshot(f) { (subs[c] = subs[c] || []).push(f); seedP.then(() => f(snap(c))); return () => { subs[c] = subs[c].filter((x) => x !== f); }; },
+        async get() { await seedP; return snap(c); },
+        doc(id) {
+          id = id || Math.random().toString(36).slice(2, 12);
+          return { id, path: c + "/" + id,
+            async get() { await seedP; const d = getCol(c)[id]; return { id, exists: !!d, data: () => d }; },
+            async set(d) { await seedP; mut(c, (o) => { o[id] = JSON.parse(JSON.stringify(d)); }); },
+            async update(d) { await seedP; mut(c, (o) => { o[id] = { ...(o[id] || {}), ...JSON.parse(JSON.stringify(d)) }; }); },
+            async delete() { await seedP; mut(c, (o) => { delete o[id]; }); } };
+        },
+        async add(d) { const ref = this.doc(); await ref.set(d); return ref; },
+      };
+    },
+  };
+  const downloads = { async save({ filename, data }) { const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data])); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000); } };
+  window.claude = { use: async (n) => (n === "db" ? db : n === "downloads" ? downloads : null) };
+})();
+</script>
+</head><body>
+<title>Patna Places</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martel:wght@600;800&family=Kalam:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+</style>
+<style>
+/* Layout: a survey-sheet atlas. The map fills the sheet; a ledger panel sits to the right (below on phones). */
+:root {
+  --paper: #f2f4f1;
+  --sheet: #ffffff;
+  --ink: #1b2826;
+  --muted: #5d6b68;
+  --rule: #d5dbd7;
+  --ganga: #0e6670;        /* accent: the river's blue-green */
+  --ganga-soft: #dcecec;
+  --home: #b4441c;
+  --office: #2f4fa8;
+  --danger: #a62a2a;
+  --ok: #2c7a3f;
+  --tile-filter: none;
+  --nh: #e9b000; --nh-bg: #ffd84d; --nh-ink: #3d2e00; --sh: #1f9d55; --sh-bg: #d7f1e1; --sh-ink: #0b4a27; --city: #8b2635; --city-bg: #f6dde2; --city-ink: #5a1420;
+  --font-display: "Martel", "Noto Serif Devanagari", Georgia, serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #121a19; --sheet: #182321; --ink: #e4ebe8; --muted: #9aa9a5; --rule: #2c3a37;
+    --ganga: #5cc0c6; --ganga-soft: #1d3b3d; --home: #f08a5d; --office: #8aa6f0;
+    --danger: #f08080; --ok: #74c88a;
+    --tile-filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.6);
+    --nh: #ffd23f; --nh-bg: #4a3a00; --nh-ink: #ffe9a0; --sh: #4cc27a; --sh-bg: #123a24; --sh-ink: #bff0d2; --city: #e07a8c; --city-bg: #3f1a21; --city-ink: #ffd3db;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #121a19; --sheet: #182321; --ink: #e4ebe8; --muted: #9aa9a5; --rule: #2c3a37;
+  --ganga: #5cc0c6; --ganga-soft: #1d3b3d; --home: #f08a5d; --office: #8aa6f0;
+  --danger: #f08080; --ok: #74c88a;
+  --tile-filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.6);
+  --nh: #ffd23f; --nh-bg: #4a3a00; --nh-ink: #ffe9a0; --sh: #4cc27a; --sh-bg: #123a24; --sh-ink: #bff0d2; --city: #e07a8c; --city-bg: #3f1a21; --city-ink: #ffd3db;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  display: grid; grid-template-rows: auto 1fr; overflow: hidden;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ganga); outline-offset: 2px; }
+
+header.bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  border-bottom: 1px solid var(--rule); background: var(--sheet);
+}
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; min-width: 0; }
+.brand h1 { font-family: var(--font-display); font-weight: 800; font-size: 22px; margin: 0; letter-spacing: -.01em; }
+.brand .hi { font-family: var(--font-display); font-weight: 600; color: var(--muted); font-size: 15px; }
+.brand .since { font-size: 12px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.modes { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn {
+  border: 1px solid var(--rule); background: var(--sheet); padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { border-color: var(--ganga); }
+.btn.primary { background: var(--ganga); border-color: var(--ganga); color: var(--sheet); }
+.btn.on { background: var(--ganga-soft); border-color: var(--ganga); }
+.btn.danger { color: var(--danger); }
+.btn.danger.solid { background: var(--danger); border-color: var(--danger); color: var(--sheet); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+main { display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+#map { min-height: 0; background: var(--paper); }
+#map .leaflet-tile-pane { filter: var(--tile-filter); }
+.leaflet-container { font-family: var(--font-body); }
+.leaflet-control-attribution { background: color-mix(in srgb, var(--sheet) 85%, transparent) !important; color: var(--muted) !important; }
+.leaflet-control-attribution a { color: var(--ganga) !important; }
+.leaflet-bar a { background: var(--sheet) !important; color: var(--ink) !important; border-color: var(--rule) !important; }
+#map.picking { cursor: crosshair; }
+#map.picking .leaflet-interactive, #map.picking .leaflet-grab { cursor: crosshair; }
+
+aside.ledger {
+  border-left: 1px solid var(--rule); background: var(--sheet); overflow-y: auto; min-height: 0;
+  padding-block: 16px 24px; padding-left: 18px; padding-right: max(18px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 18px;
+}
+.eyebrow { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0; }
+h2 { font-family: var(--font-display); font-weight: 800; font-size: 20px; margin: 0; text-wrap: balance; line-height: 1.25; }
+.notice { font-size: 13px; color: var(--muted); border: 1px dashed var(--rule); border-radius: 8px; padding: 10px 12px; margin: 0; }
+.notice strong { color: var(--ink); }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.list li button {
+  width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule);
+  padding: 10px 2px; display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; cursor: pointer;
+}
+.list li button:hover .nm { color: var(--ganga); }
+.list .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px var(--sheet), 0 0 0 3px var(--c); }
+.list .nm { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.list .sub { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.list .km { font-family: var(--font-data); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.detail { display: flex; flex-direction: column; gap: 12px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c); width: fit-content; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere; }
+.mono { font-family: var(--font-data); font-size: 13px; }
+.note { margin: 0; white-space: pre-wrap; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.confirm { border: 1px solid var(--danger); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+a.ext { color: var(--ganga); font-size: 14px; }
+
+form.edit { display: flex; flex-direction: column; gap: 10px; }
+form.edit label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
+form.edit input, form.edit select, form.edit textarea {
+  border: 1px solid var(--rule); border-radius: 6px; padding: 7px 9px; background: var(--paper); color: var(--ink); font-size: 15px;
+}
+form.edit textarea { min-height: 72px; resize: vertical; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.quizbox { display: flex; flex-direction: column; gap: 10px; }
+p.q { font-family: var(--font-display); font-size: 22px; font-weight: 800; margin: 0; }
+.score { font-family: var(--font-data); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.verdict { font-weight: 600; }
+.verdict.good { color: var(--ok); } .verdict.near { color: var(--ganga); } .verdict.far { color: var(--danger); }
+#map.quiz .place-pin, #map.quiz .lm-pin, #map.quiz .road-badge, #map.quiz .legend { display: none; }
+#map.sat .leaflet-tile-pane { filter: none; }
+#map.no-roads .legend { display: none; }
+.sketch { position: fixed; inset: 0; z-index: 2000; background: color-mix(in srgb, var(--paper) 94%, transparent); display: flex; flex-direction: column; gap: 10px;
+  padding-block: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sketch[hidden] { display: none; }
+body.fullmap { grid-template-rows: 1fr; }
+body.fullmap header.bar { display: none; }
+body.fullmap main { grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; }
+body.fullmap aside.ledger { display: none; }
+body.fullmap #map { height: 100%; }
+#btn-full.on { background: var(--ganga); color: var(--sheet); }
+.search { position: relative; flex: 1 1 240px; max-width: 420px; min-width: 0; }
+.search input { width: 100%; box-sizing: border-box; border: 1px solid var(--rule); border-radius: 99px; padding: 7px 14px 7px 34px; background: var(--paper); color: var(--ink); font-size: 15px;
+  background-image: radial-gradient(circle at 15px 50%, transparent 5px, var(--muted) 5.5px, var(--muted) 7px, transparent 7.5px); }
+.search input:focus { border-color: var(--ganga); outline: none; box-shadow: 0 0 0 3px var(--ganga-soft); }
+.q-res { position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 1500; list-style: none; margin: 0; padding: 4px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; box-shadow: 0 6px 24px rgb(0 0 0 / .18); max-height: min(60vh, 420px); overflow-y: auto; }
+.q-res li { display: grid; grid-template-columns: 14px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.q-res li[aria-selected="true"], .q-res li:hover { background: var(--ganga-soft); }
+.q-res .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--c); }
+.q-res .dot.bar { border-radius: 2px; height: 5px; width: 14px; }
+.q-res .dot.diamond { border-radius: 2px; transform: rotate(45deg) scale(.85); }
+.q-res .nm { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.q-res .nm small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.q-res .ty { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
+.q-res .none { display: block; color: var(--muted); cursor: default; }
+@media (max-width: 760px) { .search { order: 1; flex-basis: 100%; max-width: none; } .modes { order: 2; } .legend { font-size: 10px; padding: 4px 7px; gap: 1px; } .legend i { width: 14px; } }
+.sk-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sk-bar strong { font-family: var(--font-display); font-size: 18px; }
+.sk-sp { flex: 1; }
+.sk-stage { flex: 1; min-height: 0; position: relative; }
+.sk-stage canvas { position: absolute; inset: 0; margin: auto; max-width: 100%; max-height: 100%; width: auto; height: auto; border-radius: 6px; box-shadow: 0 2px 12px rgb(0 0 0 / .18); background: #fbfaf5; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.schip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--rule); background: var(--paper); border-radius: 99px; padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.schip .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); display: inline-block; }
+.schip .dot.bar { border-radius: 2px; height: 4px; width: 14px; }
+.from-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted); }
+.from-row .btn { padding: 3px 10px; font-size: 13px; }
+#map.quiz .leaflet-tile-pane .leaflet-layer { filter: blur(2.5px) saturate(.5); }
+
+/* map pins */
+.place-pin { position: relative; }
+.place-pin .p {
+  position: absolute; left: -11px; top: -26px; width: 22px; height: 22px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  background: var(--c); border: 2px solid var(--sheet); box-shadow: 0 1px 3px rgb(0 0 0 / .35);
+}
+.place-pin .p::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--sheet); }
+.place-pin .t {
+  position: absolute; left: 14px; top: -30px; white-space: nowrap; font-size: 12px; font-weight: 600;
+  background: var(--sheet); color: var(--ink); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--rule);
+}
+.place-pin.sel .p { width: 28px; height: 28px; left: -14px; top: -33px; }
+.place-pin.sel .t { top: -36px; left: 18px; border-color: var(--c); }
+.lm-pin .d { position: absolute; left: -6px; top: -6px; width: 11px; height: 11px; transform: rotate(45deg); background: var(--c); border: 2px solid var(--sheet); box-shadow: 0 1px 2px rgb(0 0 0 / .35); }
+.lm-pin .t { position: absolute; left: 10px; top: -9px; white-space: nowrap; font-size: 11.5px; font-weight: 600; color: var(--ink); text-shadow: 0 0 2px var(--paper), 0 0 3px var(--paper), 0 0 4px var(--paper); pointer-events: none; }
+.lm-pin .c { position: absolute; left: -6px; top: -6px; width: 9px; height: 9px; border-radius: 50%; background: var(--sheet); border: 3px solid var(--c); box-shadow: 0 1px 2px rgb(0 0 0 / .3); }
+.lm-pin.ax .c, .lm-pin.ax .d { outline: 2px dashed var(--c); outline-offset: 2px; }
+.lm-pin.k-chowk .t { font-size: 11px; font-weight: 600; color: var(--muted); }
+#map.zoom-low .lm-pin.k-chowk .t, #map.zoom-mid .lm-pin.k-chowk .t { display: none; }
+.lm-area span { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-family: var(--font-display); font-weight: 800; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: color-mix(in srgb, var(--ink) 62%, transparent); text-shadow: 0 0 3px var(--paper), 0 0 6px var(--paper); text-align: center; cursor: pointer; }
+.lm-area i { display: block; font-style: normal; font-size: 11px; letter-spacing: .02em; text-transform: none; font-weight: 600; }
+#map.zoom-low .lm-area i { display: none; }
+#map.sat .lm-area span { color: #fff; text-shadow: 0 0 3px #000, 0 0 6px #000; }
+#map.quiz .lm-area { display: none; }
+.mnemo { border: 1px solid var(--ganga); background: var(--ganga-soft); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.mnemo p { margin: 0; font-size: 14px; }
+.mnemo ol { margin: 0; padding-left: 20px; font-size: 14px; display: flex; flex-direction: column; gap: 2px; }
+.lm-pin .t i { font-style: normal; font-family: var(--font-display); font-weight: 600; color: var(--muted); margin-left: 5px; }
+#map.zoom-low .lm-pin .t i, #map.zoom-low .road-badge-wrap { display: none; }
+.road-badge { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 11px; font-weight: 700; letter-spacing: .02em; padding: 0 6px; border-radius: 3px; border: 1px solid; box-shadow: 0 1px 2px rgb(0 0 0 / .25); cursor: pointer; }
+.rb-nh { background: var(--nh-bg); color: var(--nh-ink); border-color: var(--nh); }
+.rb-sh { background: var(--sh-bg); color: var(--sh-ink); border-color: var(--sh); }
+.rb-city { background: var(--city-bg); color: var(--city-ink); border-color: var(--city); }
+.legend, .viewbar { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 1px 4px rgb(0 0 0 / .15); }
+.legend { padding: 6px 10px; font-size: 12px; display: flex; flex-direction: column; gap: 3px; color: var(--ink); }
+.legend span { display: flex; align-items: center; gap: 7px; }
+.legend i { width: 22px; height: 4px; border-radius: 2px; background: var(--c); }
+.viewbar { display: flex; flex-wrap: wrap; padding: 3px; gap: 3px; max-width: calc(100vw - 90px); }
+.viewbar button, .viewbar a { border: 0; background: none; color: var(--ink); font-size: 13px; font-weight: 600; padding: 5px 9px; border-radius: 6px; cursor: pointer; text-decoration: none; line-height: 1.2; }
+.viewbar .on { background: var(--ganga); color: var(--sheet); }
+.viewbar button:hover:not(.on), .viewbar a:hover { background: var(--ganga-soft); }
+.list .dot.bar { border-radius: 2px; height: 5px; width: 14px; box-shadow: none; }
+.ends { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; font-size: 14px; }
+.ends b { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: var(--sheet); font-size: 11px; }
+.endpin { display: grid; place-items: center; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--ink); color: var(--sheet); font: 700 11px var(--font-body); border: 2px solid var(--sheet); }
+.recs { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.recs .empty { color: var(--muted); font-size: 13px; }
+.list .dot.diamond { border-radius: 2px; transform: rotate(45deg) scale(.85); }
+.sub.hi, .hi-big, .hi-q { font-family: var(--font-display); }
+.hi-big { margin: -6px 0 0; color: var(--muted); font-size: 16px; }
+.hi-q { color: var(--muted); font-size: .7em; }
+.eyebrow.grp { margin-top: 6px; color: var(--ink); }
+.sub-note { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+.lm-label { white-space: nowrap; font-size: 11px; color: var(--muted); font-weight: 500; text-shadow: 0 0 3px var(--paper), 0 0 3px var(--paper), 0 0 3px var(--paper); }
+.lm-label b { display: block; font-family: var(--font-display); font-weight: 600; font-size: 11px; }
+.guess-dot { width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 3px solid var(--ink); background: var(--sheet); }
+
+@media (max-width: 760px) {
+  main { grid-template-columns: 1fr; grid-template-rows: 55% 45%; }
+  aside.ledger { border-left: 0; border-top: 1px solid var(--rule); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .brand .since { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .leaflet-fade-anim .leaflet-tile, .leaflet-zoom-anim .leaflet-zoom-animated { transition: none !important; } }
+</style>
+
+<header class="bar">
+  <div class="brand">
+    <h1>Patna Places</h1><span class="hi">पटना</span>
+    <span class="since">Living here since 9 Sep 2026</span>
+  </div>
+  <div class="search" role="search">
+    <input id="q" type="search" placeholder="Search a place or road…" autocomplete="off" aria-label="Search places and roads" aria-controls="q-res" aria-expanded="false">
+    <ul id="q-res" class="q-res" role="listbox" hidden></ul>
+  </div>
+  <div class="modes">
+    <button class="btn" id="btn-add" type="button">+ Add place</button>
+    <button class="btn" id="btn-quiz" type="button">Test my memory</button>
+    <button class="btn" id="btn-sketch" type="button">Sketch</button>
+    <button class="btn on" id="btn-lm" type="button" aria-pressed="true">Landmarks</button>
+    <button class="btn on" id="btn-roads" type="button" aria-pressed="true">Roads</button>
+  </div>
+</header>
+<main>
+  <div id="map" aria-label="Map of Patna"></div>
+  <aside class="ledger" id="panel" aria-live="polite"></aside>
+</main>
+<div id="sketch" class="sketch" hidden role="dialog" aria-label="Sketch map">
+  <div class="sk-bar"><strong>Sketch map</strong><span class="sub-note">Not to scale</span><span class="sk-sp"></span>
+    <button class="btn primary" id="sk-save" type="button">Save image</button><button class="btn" id="sk-redraw" type="button">Redraw</button><button class="btn" id="sk-close" type="button">Close</button></div>
+  <div class="sk-stage"><canvas id="sketch-canvas" aria-label="Hand-drawn style sketch of the chosen places and roads"></canvas></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(() => {
+const CATS = {
+  home:    { label: "Home",        color: "var(--home)" },
+  office:  { label: "Office",      color: "var(--office)" },
+  family:  { label: "Family",      color: "#c2185b" },
+  govt:    { label: "Government",  color: "#6b4fa0" },
+  market:  { label: "Market",      color: "#b07a12" },
+  food:    { label: "Food",        color: "#c0392b" },
+  health:  { label: "Health",      color: "#1f8a70" },
+  sports:  { label: "Sports",      color: "#2e7d32" },
+  worship: { label: "Worship",     color: "#a65d7a" },
+  travel:  { label: "Travel",      color: "#455a64" },
+  other:   { label: "Other",       color: "#7a6a58" },
+};
+// Reference landmarks and main roads from OpenStreetMap (fixed data, not your saved places)
+const LANDMARKS = [{"name":"Gandhi Maidan","hi":"गांधी मैदान","kind":"park","lat":25.6173,"lng":85.1451,"note":"The city's great open ground. Collectorate, Golghar and the Convention Centre sit around it."},{"name":"Golghar","hi":"गोलघर","kind":"heritage","lat":25.6203,"lng":85.1395,"note":"1786 granary on Ashok Rajpath, just west of Gandhi Maidan."},{"name":"Patna Junction","hi":"पटना जंक्शन","kind":"transport","lat":25.6032,"lng":85.1377,"note":"Main railway station. Mahavir Mandir is right outside the main entrance."},{"name":"Rajendra Nagar Terminal","hi":"राजेंद्र नगर टर्मिनल","kind":"transport","lat":25.603,"lng":85.1623,"note":""},{"name":"Patliputra Junction","hi":"पाटलिपुत्र जंक्शन","kind":"transport","lat":25.6216,"lng":85.0689,"note":"On the AIIMS–Digha elevated road."},{"name":"Danapur Station","hi":"दानापुर","kind":"transport","lat":25.5823,"lng":85.0463,"note":""},{"name":"Patna Airport (JPNIA)","hi":"पटना हवाई अड्डा","kind":"transport","lat":25.5918,"lng":85.09,"note":"Jayprakash Narayan International Airport."},{"name":"Gandhi Setu","hi":"गांधी सेतु","kind":"transport","lat":25.6032,"lng":85.1998,"note":"South end of the bridge across the Ganga to Hajipur."},{"name":"Main Secretariat","hi":"मुख्य सचिवालय","kind":"govt","lat":25.5997,"lng":85.117,"note":"Old Secretariat with the clock tower."},{"name":"Vikas Bhawan","hi":"विकास भवन","kind":"govt","lat":25.6056,"lng":85.1164,"note":"New Secretariat, next to your office."},{"name":"Raj Bhavan","hi":"राजभवन","kind":"govt","lat":25.6009,"lng":85.1032,"note":"Governor's residence on Bailey Road."},{"name":"Patna High Court","hi":"पटना उच्च न्यायालय","kind":"govt","lat":25.6092,"lng":85.1251,"note":""},{"name":"Patna Collectorate","hi":"पटना समाहरणालय","kind":"govt","lat":25.6221,"lng":85.1484,"note":"District Collectorate on the Ganga riverfront, north-east of Gandhi Maidan."},{"name":"Samrat Ashok Convention Centre","hi":"सम्राट अशोक कन्वेंशन केंद्र","kind":"govt","lat":25.621,"lng":85.1439,"note":"Bapu Sabhagar and Gyan Bhawan, on the west side of Gandhi Maidan."},{"name":"PMCH","hi":"पीएमसीएच","kind":"health","lat":25.6203,"lng":85.1601,"note":"Patna Medical College and Hospital, Ashok Rajpath."},{"name":"IGIMS","hi":"आईजीआईएमएस","kind":"health","lat":25.6107,"lng":85.0886,"note":"Indira Gandhi Institute of Medical Sciences, Sheikhpura."},{"name":"AIIMS Patna","hi":"एम्स पटना","kind":"health","lat":25.5607,"lng":85.0424,"note":"Phulwari Sharif."},{"name":"Bihar Museum","hi":"बिहार संग्रहालय","kind":"heritage","lat":25.6078,"lng":85.1203,"note":"On Bailey Road, near your office."},{"name":"Patna Museum","hi":"पटना संग्रहालय","kind":"heritage","lat":25.6126,"lng":85.1335,"note":""},{"name":"Takht Sri Harmandir Sahib","hi":"तख्त श्री हरमंदिर साहिब","kind":"heritage","lat":25.5958,"lng":85.2298,"note":"Patna Sahib, birthplace of Guru Gobind Singh."},{"name":"Kumhrar","hi":"कुम्हरार","kind":"heritage","lat":25.5991,"lng":85.1847,"note":"Mauryan-era Pataliputra excavation site."},{"name":"Sadaquat Ashram","hi":"सदाकत आश्रम","kind":"heritage","lat":25.6325,"lng":85.1152,"note":""},{"name":"Bapu Tower","hi":"बापू टावर","kind":"heritage","lat":25.5922,"lng":85.1139,"note":"Gandhi museum in Gardani Bagh, close to home."},{"name":"Indira Gandhi Planetarium","hi":"तारामंडल","kind":"heritage","lat":25.6104,"lng":85.1321,"note":""},{"name":"Patna Zoo","hi":"चिड़ियाघर","kind":"park","lat":25.5992,"lng":85.1007,"note":"Sanjay Gandhi Jaivik Udyan on Bailey Road."},{"name":"Eco Park","hi":"इको पार्क","kind":"park","lat":25.5976,"lng":85.1128,"note":"Rajdhani Vatika, south of the Secretariat."},{"name":"Moin-ul-Haq Stadium","hi":"मोइनुल हक़ स्टेडियम","kind":"park","lat":25.6079,"lng":85.1672,"note":"Cricket stadium in Rajendra Nagar."},{"name":"Income Tax Golambar","hi":"इनकम टैक्स गोलंबर","kind":"chowk","lat":25.61099,"lng":85.13018,"note":"Where Bailey Road meets Birchand Patel Path."},{"name":"Dak Bungalow Chowk","hi":"डाक बंगला चौराहा","kind":"chowk","lat":25.60992,"lng":85.13769,"note":"The commercial heart, where Fraser Road and Exhibition Road begin."},{"name":"Kotwali Chowk","hi":"कोतवाली चौक","kind":"chowk","lat":25.611,"lng":85.1395,"note":"Near Dak Bungalow Chowk. Approximate: drag it to the exact spot.","ax":1},{"name":"R Block Chowk","hi":"आर ब्लॉक चौराहा","kind":"chowk","lat":25.5995,"lng":85.1238,"note":"Near the Secretariat and Vidhan Sabha, at the R Block flyover. Approximate: drag to correct.","ax":1},{"name":"Hartali Mor","hi":"हड़ताली मोड़","kind":"chowk","lat":25.6125,"lng":85.121,"note":"Approximate: drag it to the exact spot.","ax":1},{"name":"Station Golambar","hi":"स्टेशन गोलंबर","kind":"chowk","lat":25.6041,"lng":85.1371,"note":"In front of Patna Junction, with Mahavir Mandir. Approximate: drag to correct.","ax":1},{"name":"Kargil Chowk","hi":"कारगिल चौक","kind":"chowk","lat":25.61861,"lng":85.14828,"note":"South-east corner of Gandhi Maidan."},{"name":"Boring Road Chowk","hi":"बोरिंग रोड चौराहा","kind":"chowk","lat":25.61167,"lng":85.11852,"note":"Where Boring Road meets Boring Canal Road."},{"name":"Patliputra Golambar","hi":"पाटलिपुत्र गोलंबर","kind":"chowk","lat":25.6235,"lng":85.1075,"note":"Approximate: drag it to the exact spot.","ax":1},{"name":"Rajapur Pul","hi":"राजापुर पुल","kind":"chowk","lat":25.62367,"lng":85.12458,"note":"On Ashok Rajpath, west side."},{"name":"Sheikhpura Mor","hi":"शेखपुरा मोड़","kind":"chowk","lat":25.605,"lng":85.0935,"note":"On Bailey Road near IGIMS. Approximate: drag to correct.","ax":1},{"name":"Ashiana Mor","hi":"आशियाना मोड़","kind":"chowk","lat":25.60537,"lng":85.08047,"note":"On Bailey Road. Raja Bazar is just east of it."},{"name":"Raja Bazar","hi":"राजा बाजार","kind":"chowk","lat":25.60442,"lng":85.08771,"note":"On Bailey Road, between Ashiana Mor and Sheikhpura."},{"name":"Saguna Mor","hi":"सगुना मोड़","kind":"chowk","lat":25.62339,"lng":85.04168,"note":"On the way to Danapur. Bailey Road's western end."},{"name":"Rajendra Nagar Golambar","hi":"राजेंद्र नगर गोलंबर","kind":"chowk","lat":25.604,"lng":85.16,"note":"Approximate: drag it to the exact spot.","ax":1},{"name":"Chiraiyatand Flyover","hi":"चिरैयाटांड़ पुल","kind":"chowk","lat":25.60578,"lng":85.14037,"note":"Crosses the railway from the station side to Kankarbagh."},{"name":"Mithapur Bus Stand","hi":"मीठापुर बस स्टैंड","kind":"chowk","lat":25.5985,"lng":85.13,"note":"Mithapur area. Approximate: drag to correct.","ax":1},{"name":"Zero Mile","hi":"ज़ीरो माइल","kind":"chowk","lat":25.58567,"lng":85.18675,"note":"Where the Old Bypass meets the National Highway."},{"name":"Bhikhna Pahari","hi":"भिखना पहाड़ी","kind":"chowk","lat":25.616,"lng":85.164,"note":"Near Ashok Rajpath and Patna University. Approximate: drag to correct.","ax":1},{"name":"Gola Road Mor","hi":"गोला रोड मोड़","kind":"chowk","lat":25.61166,"lng":85.05659,"note":"Where Gola Road meets Bailey Road, toward Danapur."},{"name":"Patna University","hi":"पटना विश्वविद्यालय","kind":"heritage","lat":25.6195,"lng":85.1545,"note":"On Ashok Rajpath. Approximate: drag to correct.","ax":1},{"name":"NIT Patna","hi":"एनआईटी पटना","kind":"heritage","lat":25.6205,"lng":85.172,"note":"On Ashok Rajpath at Mahendru. Approximate: drag to correct.","ax":1},{"name":"Bihar Vidhan Sabha","hi":"बिहार विधान सभा","kind":"govt","lat":25.5985,"lng":85.1205,"note":"In the Sachivalaya area. Approximate: drag to correct.","ax":1},{"name":"Patna Sahib Station","hi":"पटना साहिब","kind":"transport","lat":25.58594,"lng":85.23064,"note":"Station for Patna City."},{"name":"Patliputra ISBT, Bairiya","hi":"पाटलिपुत्र अंतरराज्यीय बस टर्मिनल","kind":"transport","lat":25.57584,"lng":85.18735,"note":"Inter-state bus terminal on the southern bypass."},{"name":"JP Setu","hi":"जेपी सेतु","kind":"transport","lat":25.66927,"lng":85.10922,"note":"Digha rail-cum-road bridge across the Ganga to Sonepur."},{"name":"Agam Kuan","hi":"अगम कुआँ","kind":"heritage","lat":25.6,"lng":85.1985,"note":"Ancient well, near the Agam Kuan flyover. Approximate.","ax":1},{"name":"Danapur Cantonment","hi":"दानापुर छावनी","kind":"locality","lat":25.63439,"lng":85.02983,"note":"Far west."},{"name":"Khagaul","hi":"खगौल","kind":"locality","lat":25.57968,"lng":85.04244,"note":"Far west, south of Danapur."},{"name":"Phulwari Sharif","hi":"फुलवारी शरीफ़","kind":"locality","lat":25.5745,"lng":85.079,"note":"South-west, next to AIIMS and the airport.","ax":1},{"name":"Rukanpura","hi":"रुकनपुरा","kind":"locality","lat":25.606,"lng":85.069,"note":"Along Bailey Road."},{"name":"Shivpuri","hi":"शिवपुरी","kind":"locality","lat":25.5828,"lng":85.0978,"note":"Along the Anisabad side, south of Bailey Road.","ax":1},{"name":"Digha","hi":"दीघा","kind":"locality","lat":25.64422,"lng":85.09073,"note":"North-west, on the river at JP Setu."},{"name":"Kurji","hi":"कुर्जी","kind":"locality","lat":25.638,"lng":85.104,"note":"Between Digha and Patliputra Colony.","ax":1},{"name":"Patliputra Colony","hi":"पाटलिपुत्र कॉलोनी","kind":"locality","lat":25.62682,"lng":85.1103,"note":"North of Boring Road."},{"name":"Rajbanshi Nagar","hi":"राजवंशी नगर","kind":"locality","lat":25.608,"lng":85.106,"note":"North of Bailey Road, west of the Sachivalaya."},{"name":"Shastri Nagar","hi":"शास्त्री नगर","kind":"locality","lat":25.614,"lng":85.1,"note":"North of Bailey Road. Approximate.","ax":1},{"name":"Sachivalaya area","hi":"सचिवालय क्षेत्र","kind":"locality","lat":25.6025,"lng":85.1135,"note":"Secretariat, Raj Bhavan, CM House, Vidhan Sabha."},{"name":"Gardanibagh","hi":"गर्दनीबाग","kind":"locality","lat":25.5925,"lng":85.112,"note":"Bapu Tower and government quarters. Your home is here."},{"name":"Kadamkuan","hi":"कदमकुआँ","kind":"locality","lat":25.6105,"lng":85.153,"note":"East of Gandhi Maidan, south of Ashok Rajpath. Approximate.","ax":1},{"name":"Lohanipur","hi":"लोहानीपुर","kind":"locality","lat":25.60724,"lng":85.15044,"note":"Next to Kadamkuan."},{"name":"Rajendra Nagar","hi":"राजेंद्र नगर","kind":"locality","lat":25.60052,"lng":85.16401,"note":"Around Rajendra Nagar Terminal."},{"name":"Kankarbagh","hi":"कंकड़बाग","kind":"locality","lat":25.594,"lng":85.156,"note":"The large planned colony south of the railway.","ax":1},{"name":"Bahadurpur","hi":"बहादुरपुर","kind":"locality","lat":25.59291,"lng":85.17115,"note":"East of Kankarbagh."},{"name":"Gulzarbagh","hi":"गुलज़ारबाग","kind":"locality","lat":25.59772,"lng":85.20426,"note":"Start of the old city."},{"name":"Patna City","hi":"पटना सिटी","kind":"locality","lat":25.596,"lng":85.223,"note":"The old city: Chowk and Harmandir Sahib.","ax":1},{"name":"Didarganj","hi":"दीदारगंज","kind":"locality","lat":25.572,"lng":85.27,"note":"Eastern exit toward Fatuha. Approximate.","ax":1}];
+const KINDS = {
+  transport: { label: "Stations & bridges", color: "#4a6572" },
+  govt:      { label: "Government",         color: "#6b4fa0" },
+  health:    { label: "Hospitals",          color: "#1f8a70" },
+  heritage:  { label: "Heritage & museums", color: "#a0522d" },
+  park:      { label: "Parks & stadiums",   color: "#3f7d32" },
+  chowk:     { label: "Chowks & golambars", color: "#c0561c" },
+  locality:  { label: "Localities",         color: "#6b7a76" },
+};
+const BOUNDS = L.latLngBounds([25.545, 85.015], [25.665, 85.295]);
+const CORE = L.latLngBounds([25.585, 85.095], [25.625, 85.14]);
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const cat = (k) => CATS[k] || CATS.other;
+function km(a, b) {
+  const R = 6371, r = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const fmtKm = (d) => d < 1 ? `${Math.round(d * 1000)} m` : `${d.toFixed(1)} km`;
+const fmtDate = (s) => { if (!s) return "—"; const d = new Date(s + "T00:00:00"); return isNaN(d) ? s : d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }); };
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+// ---------- map ----------
+const map = L.map("map", { minZoom: 11, maxZoom: 18, maxBounds: BOUNDS.pad(0.05), zoomSnap: 0.5 }).setView([25.603, 85.122], 14);
+let TILES = {};
+const LocalTiles = L.GridLayer.extend({
+  createTile(c) {
+    const img = document.createElement("img");
+    img.alt = ""; img.setAttribute("role", "presentation");
+    const src = (this.options.src ? this.options.src() || {} : TILES)[`${c.z}/${c.x}/${c.y}`];
+    if (src) img.src = src;
+    return img;
+  },
+});
+const base = new LocalTiles({ minNativeZoom: 11, maxNativeZoom: 15, bounds: BOUNDS, keepBuffer: 4 });
+const detail = new LocalTiles({ minZoom: 16, minNativeZoom: 16, maxNativeZoom: 16, bounds: CORE });
+map.attributionControl.setPrefix(false).addAttribution('Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>');
+fetch("tiles.json").then((r) => r.json()).then((t) => { TILES = t; base.addTo(map); detail.addTo(map); }).catch(() => {
+  map.attributionControl.addAttribution("Map tiles did not load; pins still work");
+});
+
+const lmSlug = (n) => n.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+let lmFix = {};
+const lmMarkers = [];
+function lmIcon(l) {
+  if (l.kind === "locality") return L.divIcon({ className: "lm-area", html: `<span>${esc(l.name)}<i>${esc(l.hi)}</i></span>`, iconSize: [0, 0], iconAnchor: [0, 0] });
+  const shape = l.kind === "chowk" ? "c" : "d";
+  return L.divIcon({ className: `lm-pin k-${l.kind}${l.ax && !lmFix[lmSlug(l.name)] ? " ax" : ""}`, html: `<span class="${shape}" style="--c:${KINDS[l.kind].color}"></span><span class="t">${esc(l.name)}<i>${esc(l.hi)}</i></span>`, iconSize: [0, 0], iconAnchor: [0, 0] });
+}
+const lmLayer = L.layerGroup(LANDMARKS.map((l, i) => {
+  const m = L.marker([l.lat, l.lng], { keyboard: false, title: l.name, icon: lmIcon(l), draggable: true, autoPan: true, zIndexOffset: l.kind === "locality" ? -500 : 0 });
+  m.on("click", () => { if (view.mode !== "pick" && view.mode !== "quiz" && view.mode !== "sv") go({ mode: "lm", i }); });
+  m.on("dragend", async () => {
+    const ll = m.getLatLng(), pos = { lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6), name: l.name, at: new Date().toISOString() };
+    l.lat = pos.lat; l.lng = pos.lng; lmFix[lmSlug(l.name)] = pos; m.setIcon(lmIcon(l)); rrMemo.clear(); render();
+    try { await db.collection("lmfix").doc(lmSlug(l.name)).set(pos); flash(`${l.name} moved. The new position is saved.`); }
+    catch { flash("The new position could not be saved. Open the page signed in to claude.ai and try again."); }
+  });
+  lmMarkers[i] = m;
+  m.on("add", () => m.dragging?.disable());
+  return m;
+})).addTo(map);
+function syncLmDrag() { lmMarkers.forEach((m, i) => { if (!m.dragging) return; if (view.adjust === "l:" + i) m.dragging.enable(); else m.dragging.disable(); }); }
+function applyLmFix() {
+  LANDMARKS.forEach((l, i) => { const f = lmFix[lmSlug(l.name)]; if (f) { l.lat = f.lat; l.lng = f.lng; lmMarkers[i].setLatLng([f.lat, f.lng]); lmMarkers[i].setIcon(lmIcon(l)); } });
+}
+$("#btn-lm").onclick = (e) => toggleLayer(lmLayer, e.currentTarget);
+const syncZoom = () => { const z = map.getZoom(); $("#map").classList.toggle("zoom-low", z < 13.5); $("#map").classList.toggle("zoom-mid", z >= 13.5 && z < 14.5); };
+map.on("zoomend", syncZoom); syncZoom();
+
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+// ---------- roads (OpenStreetMap; NH/SH/MDR numbers from its "ref" tags) ----------
+const ROAD_CLASS = {
+  nh:   { label: "National Highway",                 short: "National Highways" },
+  sh:   { label: "State Highway / Major District Road", short: "State Highways & MDRs" },
+  city: { label: "City road",                        short: "City roads" },
+};
+const BADGES = [
+  ["NH-922", "NH-922 · Bailey Road", "Bailey Road"], ["NH-139", "NH-139"], ["NH-22", "New Bypass · NH-22", null, [25.5846, 85.1450]], ["NH-22", "NH-22 · towards Gaya", null, [25.5550, 85.1200]], ["Exhibition Road", "Exhibition Road"], ["NH-31", "NH-31"],
+  ["NH-22 / NH-31", "NH-22 / NH-31"], ["NH-122B", "NH-122B"], ["SH-1", "SH-1"], ["MDR · Jagdeo Path", "MDR · Jagdeo Path"],
+  ["MDR · Moti Chowk Road", "MDR · Moti Chowk Rd"], ["MDR (unnamed)", "MDR"], ["Ashok Rajpath", "Ashok Rajpath"],
+  ["JP Ganga Path (Marine Drive)", "JP Ganga Path"], ["AIIMS–Digha Elevated Road", "AIIMS–Digha Elevated Rd"], ["Atal Path", "Atal Path"],
+  ["Boring Road", "Boring Road"], ["Boring Canal Road", "Boring Canal Road"], ["Fraser Road", "Fraser Road"], ["Station Road", "Station Road"],
+  ["Birchand Patel Path", "Birchand Patel Path"], ["Guru Govind Path", "Guru Govind Path"], ["Kanti Factory Road", "Kanti Factory Road"],
+];
+let RD = null;                 // { routes: {key: info}, ways: [[cls, routeKey, highway, [[lat,lng]...], name]] }
+let roadInfo = {};             // department records you add, keyed by road slug
+const roadSlug = (k) => k.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "road";
+const roadRenderer = L.canvas({ tolerance: 9 });
+const roadLines = L.layerGroup(), roadBadges = L.layerGroup();
+const roadLayer = L.layerGroup([roadLines, roadBadges]);
+const W = { motorway: 6, trunk: 6, primary: 4, secondary: 3, tertiary: 2 };
+const wayLen = (g) => { let s = 0; for (let i = 1; i < g.length; i++) s += km({ lat: g[i - 1][0], lng: g[i - 1][1] }, { lat: g[i][0], lng: g[i][1] }); return s; };
+function drawRoads() {
+  if (!RD) return;
+  roadLines.clearLayers();
+  const col = { nh: cssVar("--nh"), sh: cssVar("--sh"), city: cssVar("--city") };
+  const order = { city: 0, sh: 1, nh: 2 };
+  RD.ways.map((w, i) => [w, i]).sort((a, b) => order[a[0][0]] - order[b[0][0]]).forEach(([w, i]) => {
+    const pl = L.polyline(w[3], { renderer: roadRenderer, color: col[w[0]], weight: W[w[2]] || 3, opacity: w[0] === "city" ? 0.6 : 0.95, lineCap: "round" });
+    pl.on("click", (e) => { if (view.mode === "pick" || view.mode === "quiz" || view.mode === "sv") return; go({ mode: "road", key: w[1], way: i, tap: e.latlng }); });
+    roadLines.addLayer(pl);
+  });
+}
+function badgeSpots(key, filter, at) {
+  if (at) { let best = null, bd = Infinity; for (const w of RD.ways) if (w[1] === key) for (const p of w[3]) { const d = (p[0] - at[0]) ** 2 + (p[1] - at[1]) ** 2; if (d < bd) { bd = d; best = p; } } return best ? [best] : []; }
+  const ws = RD.ways.filter((w) => w[1] === key && (!filter || w[4] === filter)).map((w) => [w, wayLen(w[3])]).sort((a, b) => b[1] - a[1]);
+  if (!ws.length) return [];
+  const mid = (w) => w[3][Math.floor(w[3].length / 2)];
+  const spots = [mid(ws[0][0])];
+  const r = RD.routes[key];
+  if (!filter && r && r.km > 8) {
+    const far = ws.find(([w]) => km({ lat: mid(w)[0], lng: mid(w)[1] }, { lat: spots[0][0], lng: spots[0][1] }) > 4);
+    if (far) spots.push(mid(far[0]));
+  }
+  return spots;
+}
+function drawBadges() {
+  roadBadges.clearLayers();
+  for (const [key, text, filter, at] of BADGES) {
+    const r = RD.routes[key]; if (!r) continue;
+    for (const p of badgeSpots(key, filter, at)) {
+      const m = L.marker(p, { keyboard: false, title: r.name, icon: L.divIcon({ className: "road-badge-wrap", html: `<span class="road-badge rb-${r.cls}">${esc(text)}</span>`, iconSize: [0, 0], iconAnchor: [0, 0] }) });
+      m.on("click", () => { if (view.mode !== "pick" && view.mode !== "quiz" && view.mode !== "sv") go({ mode: "road", key, tap: { lat: p[0], lng: p[1] } }); });
+      roadBadges.addLayer(m);
+    }
+  }
+}
+fetch("roads.json").then((r) => r.json()).then((d) => { RD = d; drawRoads(); drawBadges(); roadLayer.addTo(map); lmLayer.bringToFront?.(); render(); }).catch(() => {});
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => drawRoads());
+$("#btn-roads").onclick = (e) => { toggleLayer(roadLayer, e.currentTarget); $("#map").classList.toggle("no-roads", !map.hasLayer(roadLayer)); };
+
+function nearestOnRoute(key, pt) {
+  const kx = Math.cos(pt.lat * Math.PI / 180);
+  let best = null, bd = Infinity;
+  for (const w of RD.ways) {
+    if (w[1] !== key) continue;
+    const s = w[3];
+    for (let j = 0; j < s.length - 1; j++) {
+      const ax = s[j][1] * kx, ay = s[j][0], bx = s[j + 1][1] * kx, by = s[j + 1][0], px = pt.lng * kx, py = pt.lat;
+      const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      const t = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
+      const q = { lat: ay + t * dy, lng: (ax + t * dx) / kx }, d = km(pt, q);
+      if (d < bd) { bd = d; best = q; }
+    }
+  }
+  return { point: best, d: bd };
+}
+function highlightRoute(key, way) {
+  const ws = key ? RD.ways.filter((w) => w[1] === key) : [RD.ways[way]];
+  for (const w of ws) L.polyline(w[3], { color: cssVar("--ink"), weight: (W[w[2]] || 3) + 7, opacity: 0.22, interactive: false }).addTo(lineLayer);
+}
+function endText(e) {
+  if (e.t === "edge") return "Continues beyond the map area";
+  if (e.t === "lm") return `Near ${e.v}`;
+  if (e.t === "jn") return `Junction with ${e.v}`;
+  if (e.t === "geo") return `${e.v} area`;
+  return `${e.p[0].toFixed(4)}° N, ${e.p[1].toFixed(4)}° E`;
+}
+
+// ---------- map views: Map / Satellite / Street View / Traffic ----------
+let SAT = null, satOn = false;
+const satBase = new LocalTiles({ minNativeZoom: 11, maxNativeZoom: 15, bounds: BOUNDS, keepBuffer: 4, src: () => SAT });
+const satDetail = new LocalTiles({ minZoom: 16, minNativeZoom: 16, maxNativeZoom: 16, bounds: CORE, src: () => SAT });
+const ESRI = "Imagery © Esri, Maxar, Earthstar Geographics";
+const ViewBar = L.Control.extend({
+  options: { position: "topright" },
+  onAdd() {
+    const el = L.DomUtil.create("div", "viewbar");
+    el.innerHTML = `<button type="button" data-v="map" class="on">Map</button><button type="button" data-v="sat">Satellite</button><button type="button" data-v="sv">Street View</button><a id="lnk-traffic" href="https://www.google.com/maps/@25.603,85.122,13z/data=!5m1!1e1" target="_blank" rel="noopener">Traffic ↗</a><button type="button" id="btn-full" title="Full screen map" aria-pressed="false">⛶ Full screen</button>`;
+    L.DomEvent.disableClickPropagation(el);
+    return el;
+  },
+});
+new ViewBar().addTo(map);
+const Legend = L.Control.extend({
+  options: { position: "bottomleft" },
+  onAdd() {
+    const el = L.DomUtil.create("div", "legend");
+    el.innerHTML = `<span><i style="--c:var(--nh)"></i>National Highway</span><span><i style="--c:var(--sh)"></i>State Highway / MDR</span><span><i style="--c:var(--city)"></i>City road</span>`;
+    return el;
+  },
+});
+new Legend().addTo(map);
+function setView(v) {
+  const cur = v === "sv" ? "sv" : satOn ? "sat" : "map";
+  document.querySelectorAll(".viewbar [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === cur));
+}
+async function showSatellite(on) {
+  satOn = on; $("#map").classList.toggle("sat", on);
+  if (on) {
+    if (!SAT) { try { SAT = await (await fetch("satellite.json")).json(); } catch { SAT = null; flash("Satellite images did not load. Check your connection and try again."); satOn = false; $("#map").classList.remove("sat"); setView(view.mode); return; } }
+    map.removeLayer(base); map.removeLayer(detail); satBase.addTo(map); satDetail.addTo(map); map.attributionControl.addAttribution(ESRI);
+  } else {
+    map.removeLayer(satBase); map.removeLayer(satDetail); base.addTo(map); detail.addTo(map); map.attributionControl.removeAttribution(ESRI);
+  }
+  setView(view.mode);
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest?.(".viewbar [data-v]"); if (!b) return;
+  if (b.dataset.v === "map") { if (view.mode === "sv") go({ mode: "list" }); showSatellite(false); }
+  else if (b.dataset.v === "sat") { if (view.mode === "sv") go({ mode: "list" }); showSatellite(true); }
+  else if (b.dataset.v === "sv") go(view.mode === "sv" ? { mode: "list" } : { mode: "sv" });
+});
+function setFull(on) {
+  document.body.classList.toggle("fullmap", on);
+  const b = $("#btn-full"); if (b) { b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); b.textContent = on ? "✕ Exit full screen" : "⛶ Full screen"; }
+  try { if (on && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {}); if (!on && document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); } catch {}
+  setTimeout(() => map.invalidateSize(), 60); setTimeout(() => map.invalidateSize(), 400);
+}
+document.addEventListener("click", (e) => { if (e.target.closest?.("#btn-full")) setFull(!document.body.classList.contains("fullmap")); });
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("fullmap")) setFull(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && document.body.classList.contains("fullmap") && $("#sketch").hidden) setFull(false); });
+const syncTraffic = () => { const a = $("#lnk-traffic"), c = map.getCenter(); if (a) a.href = `https://www.google.com/maps/@${c.lat.toFixed(5)},${c.lng.toFixed(5)},${Math.round(map.getZoom())}z/data=!5m1!1e1`; };
+map.on("moveend", syncTraffic); syncTraffic();
+
+// ---------- state ----------
+let db = null, col = null;
+let places = [];          // [{id, ...data}]
+let loaded = false, dbState = "connecting"; // connecting | ready | unavailable | error
+let view = { mode: "list" }; // list | detail{id} | edit{id|null, lat, lng} | pick | quiz
+const markers = new Map();
+const lineLayer = L.layerGroup().addTo(map);
+const anchor = (k) => places.find((p) => p.category === k);
+
+function pinIcon(p, sel) {
+  return L.divIcon({
+    className: "place-pin" + (sel ? " sel" : ""),
+    html: `<span class="p" style="--c:${cat(p.category).color}"></span><span class="t">${esc(p.name)}</span>`,
+    iconSize: [0, 0], iconAnchor: [0, 0],
+  });
+}
+function syncMarkers() {
+  const ids = new Set(places.map((p) => p.id));
+  for (const [id, m] of markers) if (!ids.has(id)) { map.removeLayer(m); markers.delete(id); }
+  for (const p of places) {
+    const sel = view.mode === "detail" && view.id === p.id;
+    let m = markers.get(p.id);
+    if (!m) {
+      m = L.marker([p.lat, p.lng], { draggable: true, autoPan: true, title: p.name, riseOnHover: true }).addTo(map);
+      m.dragging.disable();
+      m.on("click", () => { if (view.mode !== "pick" && view.mode !== "quiz") go({ mode: "detail", id: p.id }); });
+      m.on("dragend", () => { const ll = m.getLatLng(); save(p.id, { lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6), approx: false }); rrMemo.clear(); routeCache.clear(); });
+      markers.set(p.id, m);
+    }
+    m.setLatLng([p.lat, p.lng]); m.setIcon(pinIcon(p, sel)); m.setZIndexOffset(sel ? 1000 : 0);
+    if (view.adjust === "p:" + p.id) m.dragging.enable(); else m.dragging.disable();
+    m.options.title = p.name;
+  }
+}
+function drawLines() {
+  lineLayer.clearLayers();
+  if (view.mode === "list" && view.trace) { drawSpine(); return; }
+  if (view.mode === "road" && RD) {
+    highlightRoute(view.key, view.way);
+    const r = view.key && RD.routes[view.key];
+    if (r) [["A", r.from], ["B", r.to]].forEach(([t, e]) => L.marker(e.p, { interactive: false, icon: L.divIcon({ className: "", html: `<div class="endpin">${t}</div>`, iconSize: [0, 0] }) }).addTo(lineLayer));
+    return;
+  }
+  if (view.mode === "sv" && view.at) { L.circleMarker([view.at.lat, view.at.lng], { radius: 8, color: cssVar("--ganga"), weight: 3, fillOpacity: 0.3, interactive: false }).addTo(lineLayer); return; }
+  if (view.mode === "lm") {
+    const l = LANDMARKS[view.i], a = routeFrom(null);
+    if (a) { if (NET) drawRoute(a, l); else L.polyline([[a.lat, a.lng], [l.lat, l.lng]], { color: cssVar("--home"), weight: 2, dashArray: "6 6", interactive: false }).addTo(lineLayer); }
+    return;
+  }
+  if (view.mode !== "detail") return;
+  const p = places.find((x) => x.id === view.id); if (!p) return;
+  const a = routeFrom(p.id);
+  if (a) { if (NET) drawRoute(a, p); else L.polyline([[a.lat, a.lng], [p.lat, p.lng]], { color: cssVar("--home"), weight: 2, dashArray: "6 6", interactive: false }).addTo(lineLayer); }
+}
+
+// ---------- data ----------
+async function save(id, data) {
+  if (!col) return;
+  try { await col.doc(id).update({ ...data, updatedAt: new Date().toISOString() }); }
+  catch (e) { flash(`Could not save the change: ${e?.message || "try again"}`); }
+}
+let flashMsg = "";
+function flash(m) { flashMsg = m; render(); setTimeout(() => { flashMsg = ""; render(); }, 5000); }
+
+(async () => {
+  const timer = setTimeout(() => { if (!loaded) { dbState = "unavailable"; render(); } }, 10000);
+  try { db = await window.claude?.use?.("db"); } catch { db = null; }
+  if (!db) { clearTimeout(timer); dbState = "unavailable"; render(); return; }
+  col = db.collection("places");
+  db.collection("lmfix").onSnapshot((snap) => { snap.docs.forEach((d) => { lmFix[d.id] = d.data(); }); applyLmFix(); if (typeof rrMemo !== "undefined") rrMemo.clear(); render(); }, () => {});
+  db.collection("roads").onSnapshot((snap) => { roadInfo = {}; snap.docs.forEach((d) => { roadInfo[d.id] = d.data(); }); if (view.mode === "road") render(); }, () => {});
+  col.onSnapshot((snap) => {
+    clearTimeout(timer); loaded = true; dbState = "ready";
+    places = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    places.sort((a, b) => (a.category === "home" ? -2 : a.category === "office" ? -1 : 0) - (b.category === "home" ? -2 : b.category === "office" ? -1 : 0) || String(a.name).localeCompare(String(b.name)));
+    if (view.mode === "detail" && !places.some((p) => p.id === view.id)) view = { mode: "list" };
+    if (!fitted && places.length) { fitted = true; map.fitBounds(L.latLngBounds(places.map((p) => [p.lat, p.lng])).pad(0.6), { maxZoom: 15 }); }
+    render();
+  }, (e) => { clearTimeout(timer); dbState = "error"; flashMsg = e?.message || ""; render(); });
+})();
+let fitted = false;
+
+// ---------- views ----------
+function go(v) { view = v; render(); }
+function render() {
+  syncMarkers(); syncLmDrag(); drawLines();
+  const el = $("#map"); el.classList.toggle("picking", view.mode === "pick"); el.classList.toggle("quiz", view.mode === "quiz");
+  $("#btn-add").classList.toggle("on", view.mode === "pick" || (view.mode === "edit" && !view.id));
+  $("#btn-quiz").classList.toggle("on", view.mode === "quiz");
+  $("#btn-sketch").classList.toggle("on", view.mode === "sketch");
+  $("#btn-add").disabled = dbState !== "ready"; $("#btn-quiz").disabled = false;
+  const panel = $("#panel");
+  const f = flashMsg ? `<p class="notice" role="status">${esc(flashMsg)}</p>` : "";
+  panel.innerHTML = f + ({ list: listView, detail: detailView, edit: editView, pick: pickView, quiz: quizView, lm: lmView, road: roadView, roadedit: roadEditView, sv: svView, sketch: sketchView }[view.mode] || listView)();
+  setView(view.mode); $("#map").classList.toggle("picking", view.mode === "pick" || view.mode === "sv");
+  bind(panel);
+}
+
+function listView() {
+  if (dbState === "connecting") return `<p class="eyebrow">Your places</p><p class="notice">Loading your saved places…</p>${refLists()}`;
+  if (dbState === "unavailable") return `<p class="eyebrow">Your places</p><h2>Saved places appear here</h2><p class="notice">Your places are stored with this page on claude.ai. Open it while signed in to see and add them. The map and landmarks still work here.</p>${refLists()}`;
+  if (dbState === "error") return `<p class="eyebrow">Your places</p><p class="notice">The places could not be loaded. Reload the page to try again.</p>`;
+  if (!places.length) return `<p class="eyebrow">Your places</p><h2>No places yet</h2><p class="notice">Tap <strong>+ Add place</strong>, then tap the map where it is. Start with home and office.</p>`;
+  const h = anchor("home"), o = anchor("office");
+  const between = h && o ? `<p class="notice">Home to office: <strong>${distText(h, o)}</strong>.</p>` : "";
+  const items = places.map((p) => {
+    const ref = p.category === "home" ? o : h;
+    const d = ref && ref.id !== p.id ? `${fmtKm(roadKm(ref, p))} from ${ref.category === "home" ? "home" : "office"}` : "";
+    return `<li><button type="button" data-open="${esc(p.id)}"><span class="dot" style="--c:${cat(p.category).color}"></span><span class="nm">${esc(p.name)}<span class="sub">${esc(cat(p.category).label)}${p.approx ? " · approximate location" : ""}</span></span><span class="km">${d}</span></button></li>`;
+  }).join("");
+  const mnemo = `<div class="mnemo"><p class="eyebrow">How to remember Patna</p>
+    <p>A long east–west strip on the south bank of the Ganga, from Danapur in the west to Patna City and Didarganj in the east. Three parallel corridors carry the city, with the railway between them:</p>
+    <ol><li>JP Ganga Path and Ashok Rajpath along the river</li><li>Bailey Road through the middle</li><li>The bypasses south of the railway, past Kankarbagh</li></ol>
+    <p>Trace Bailey Road from Saguna Mor east to Income Tax Golambar, then Gandhi Maidan, Ashok Rajpath and Patna City.</p>
+    <div class="row"><button class="btn primary" type="button" data-act="trace">Trace it on the map</button></div></div>`;
+  return `${mnemo}<div><p class="eyebrow">Your places · ${places.length}</p><h2>Your three anchors</h2></div>${between}<ul class="list">${items}</ul>
+  <p class="notice">Pins are locked. To move one, open it and tap <strong>Adjust position</strong>. Tap anything on the map to see its road distance from home.</p>
+  ${refLists()}`;
+}
+function refLists() {
+  const h = anchor("home");
+  const groups = Object.entries(KINDS).map(([k, c]) => {
+    const rows = LANDMARKS.map((l, i) => [l, i]).filter(([l]) => l.kind === k)
+      .sort((a, b) => h ? roadKm(h, a[0]) - roadKm(h, b[0]) : 0)
+      .map(([l, i]) => `<li><button type="button" data-lm="${i}"><span class="dot diamond" style="--c:${c.color}"></span><span class="nm">${esc(l.name)}<span class="sub hi">${esc(l.hi)}</span></span><span class="km">${h ? fmtKm(roadKm(h, l)) : ""}</span></button></li>`).join("");
+    return `<p class="eyebrow grp">${esc(c.label)}</p><ul class="list">${rows}</ul>`;
+  }).join("");
+  let roads = "";
+  if (RD) {
+    const keys = [...new Set(BADGES.map((b) => b[0]))].filter((k) => RD.routes[k]);
+    roads = Object.entries(ROAD_CLASS).map(([c, rc]) => {
+      const rows = keys.filter((k) => RD.routes[k].cls === c).map((k) => { const r = RD.routes[k];
+        return `<li><button type="button" data-road="${esc(k)}"><span class="dot bar" style="--c:var(--${c})"></span><span class="nm">${esc(r.name)}<span class="sub">${esc(r.sub?.[0]?.[0] && r.cls !== "city" ? r.sub.map((x) => x[0]).slice(0, 2).join(", ") : ROAD_CLASS[c].label)}</span></span><span class="km">${r.km} km</span></button></li>`; }).join("");
+      return rows ? `<p class="eyebrow grp">${esc(rc.short)}</p><ul class="list">${rows}</ul>` : "";
+    }).join("");
+  }
+  return `<div><p class="eyebrow">Landmarks of Patna · ${LANDMARKS.length}</p><p class="sub-note">${netState === "ready" ? "Distances are by road from home." : "Distances are straight-line until the road network loads."}</p></div>${groups}
+  <div><p class="eyebrow">Main roads</p><p class="sub-note">Tap a road on the map or here for its length, start and end. Lengths are within this map.</p></div>${roads}`;
+}
+function refFacts(pt) {
+  return ["home", "office", "family"].map((k) => { const a = anchor(k); return a ? `<dt>From ${k === "family" ? "in-laws" : k}</dt><dd>${distText(a, pt)}<span class="sub-note" style="display:block">${fmtKm(km(a, pt))} straight line</span></dd>` : ""; }).join("");
+}
+function fromRow(exclude) {
+  const opts = [["home", "Home"], ["office", "Office"], ["family", "In-laws"]].filter(([k]) => anchor(k) && anchor(k).id !== exclude);
+  if (!opts.length || netState !== "ready") return "";
+  const cur = view.from && opts.some(([k]) => k === view.from) ? view.from : opts[0][0];
+  return `<div class="from-row">Route on map from ${opts.map(([k, t]) => `<button class="btn${k === cur ? " on" : ""}" type="button" data-from="${k}">${t}</button>`).join("")}</div>`;
+}
+function routeFrom(exclude) {
+  const opts = ["home", "office", "family"].filter((k) => anchor(k) && anchor(k).id !== exclude);
+  return anchor(view.from && opts.includes(view.from) ? view.from : opts[0]);
+}
+function parseLatLng(t) {
+  t = String(t || "").trim();
+  const pats = [/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, /@(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /[?&](?:q|query|ll|destination|viewpoint)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/, /^(-?\d+\.\d+)\s*[, ]\s*(-?\d+\.\d+)$/];
+  for (const re of pats) { const m = t.match(re); if (m) { const lat = +m[1], lng = +m[2]; if (lat > 24 && lat < 27 && lng > 83 && lng < 88) return { lat, lng }; } }
+  return null;
+}
+function adjustBlock(key) {
+  const on = view.adjust === key;
+  if (dbState !== "ready") return "";
+  return `<div class="recs"><p class="eyebrow">Pin position · ${on ? "unlocked" : "locked"}</p>
+    ${on ? `<p class="note">Drag the pin on the map, or paste coordinates or a full Google Maps link below. Tap <strong>Done</strong> to lock it again.</p>
+    <form class="edit" id="f-pos"><label for="pos-in">Coordinates or Google Maps link<input id="pos-in" placeholder="25.58815, 85.10591" autocomplete="off"></label>
+    <div class="row"><button class="btn primary" type="submit">Set position</button><button class="btn" type="button" data-act="adj-done">Done</button></div></form>`
+    : `<p class="sub-note">The pin is locked so a stray touch can't move it.</p><div class="row"><button class="btn" type="button" data-act="adj-on" data-key="${key}">Adjust position</button></div>`}</div>`;
+}
+function lmView() {
+  const l = LANDMARKS[view.i], c = KINDS[l.kind];
+  return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>
+  <div class="detail"><span class="chip" style="--c:${c.color}">${esc(c.label)}</span><h2>${esc(l.name)}</h2><p class="hi-big">${esc(l.hi)}</p>
+  ${l.note ? `<p class="note">${esc(l.note)}</p>` : ""}
+  ${fromRow(null)}<dl class="facts">${refFacts(l)}<dt>Position</dt><dd class="mono">${l.lat.toFixed(4)}° N, ${l.lng.toFixed(4)}° E</dd></dl>
+  <a class="ext" href="https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+  <a class="ext" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${l.lat},${l.lng}" target="_blank" rel="noopener">See it in Google Street View ↗</a>
+  ${adjustBlock("l:" + view.i)}</div>`;
+}
+function roadView() {
+  if (!RD) return `<p class="notice">Loading roads…</p>`;
+  const back = `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>`;
+  const tap = view.tap, links = tap ? `<a class="ext" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${tap.lat},${tap.lng}" target="_blank" rel="noopener">Street View at this spot ↗</a><a class="ext" href="https://www.google.com/maps/search/?api=1&query=${tap.lat},${tap.lng}" target="_blank" rel="noopener">Open this spot in Google Maps ↗</a>` : "";
+  const r = view.key && RD.routes[view.key];
+  if (!r) {
+    const w = RD.ways[view.way];
+    return `${back}<div class="detail"><span class="chip" style="--c:var(--${w[0]})">${esc(ROAD_CLASS[w[0]].label)}</span><h2>${esc(w[4] || "Unnamed road")}</h2>
+    <dl class="facts"><dt>This section</dt><dd>${fmtKm(wayLen(w[3]))}</dd><dt>Road type</dt><dd>${esc(w[2])}</dd></dl>
+    <p class="notice">OpenStreetMap has no name or road number for this stretch.</p>${links}</div>`;
+  }
+  const tappedName = view.way != null ? RD.ways[view.way][4] : "";
+  const sub = r.sub?.find((x) => x[0] === tappedName);
+  const rec = roadInfo[roadSlug(view.key)] || {};
+  const recRows = [["Built by", rec.builtBy], ["Executing agency", rec.agency], ["Maintained by", rec.maintainedBy], ["Cost", rec.cost], ["Completed", rec.year], ["Remarks", rec.remarks]].filter(([, v]) => v);
+  const h = anchor("home");
+  return `${back}<div class="detail">
+    <span class="chip" style="--c:var(--${r.cls})">${esc(ROAD_CLASS[r.cls].label)}</span>
+    <h2>${esc(r.name)}</h2>${r.hi ? `<p class="hi-big">${esc(r.hi)}</p>` : ""}
+    ${sub ? `<p class="note"><strong>${esc(sub[0])}</strong> is part of this route, about ${sub[1]} km of it.</p>` : ""}
+    <dl class="facts">
+      <dt>Length</dt><dd>about ${r.km} km within this map</dd>
+      ${h ? `<dt>From home</dt><dd>${distText(h, nearestOnRoute(view.key, h).point)} to the nearest point</dd>` : ""}
+      ${r.lanes ? `<dt>Lanes</dt><dd>${esc(r.lanes)} (typical, per carriageway)</dd>` : ""}
+      ${r.surface ? `<dt>Surface</dt><dd>${esc(r.surface)}</dd>` : ""}
+      ${r.maxspeed ? `<dt>Speed limit</dt><dd>${esc(r.maxspeed)} km/h</dd>` : ""}
+      ${r.bridges ? `<dt>Bridge or flyover sections</dt><dd>${r.bridges}</dd>` : ""}
+      ${r.sub?.length ? `<dt>Local names</dt><dd>${r.sub.map((x) => esc(x[0])).join(", ")}</dd>` : ""}
+    </dl>
+    <dl class="ends"><b>A</b><span>${esc(endText(r.from))}</span><b>B</b><span>${esc(endText(r.to))}</span></dl>
+    <div class="recs"><p class="eyebrow">Department records</p>
+      ${recRows.length ? `<dl class="facts">${recRows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : `<p class="empty">Who built it, the agency, cost and year aren't in OpenStreetMap. Add them from RCD or BSRDC records.</p>`}
+      ${dbState === "ready" ? `<div class="row"><button class="btn" type="button" data-act="road-edit">${recRows.length ? "Edit records" : "Add records"}</button></div>` : ""}
+    </div>
+    <p class="sub-note">Length counts divided carriageways once. ${r.cls !== "city" ? "Highways continue beyond this map. " : ""}Class and numbers come from OpenStreetMap.</p>
+    ${links}</div>`;
+}
+function roadEditView() {
+  const r = RD.routes[view.key], v = roadInfo[roadSlug(view.key)] || {};
+  const f = (id, label, val, ph) => `<label for="${id}">${label}<input id="${id}" name="${id.slice(2)}" maxlength="160" value="${esc(val || "")}" placeholder="${ph}"></label>`;
+  return `<div><p class="eyebrow">Department records</p><h2>${esc(r.name)}</h2></div>
+  <form class="edit" id="f-road">
+    ${f("r-builtBy", "Built by (contractor)", v.builtBy, "e.g. name of the construction company")}
+    ${f("r-agency", "Executing agency", v.agency, "e.g. BSRDC, RCD, NHAI, PMC")}
+    ${f("r-maintainedBy", "Maintained by", v.maintainedBy, "e.g. RCD Patna Division")}
+    <div class="two">${f("r-cost", "Cost", v.cost, "e.g. ₹ 1,200 crore")}${f("r-year", "Completed", v.year, "e.g. 2019")}</div>
+    <label for="r-remarks">Remarks<textarea id="r-remarks" name="remarks" maxlength="800">${esc(v.remarks || "")}</textarea></label>
+    <div class="row"><button class="btn primary" type="submit">Save records</button><button class="btn" type="button" data-act="road-back">Cancel</button></div>
+  </form>`;
+}
+function svView() {
+  if (!view.at) return `<div><p class="eyebrow">Street View</p><h2>Tap a street on the map</h2></div><p class="notice">Google Street View opens in a new tab at the spot you tap.</p><div class="row"><button class="btn" type="button" data-act="back">Done</button></div>`;
+  const a = view.at;
+  return `<div><p class="eyebrow">Street View</p><h2>Spot selected</h2></div><p class="mono" style="margin:0;color:var(--muted)">${a.lat.toFixed(5)}° N, ${a.lng.toFixed(5)}° E</p>
+  <a class="btn primary" style="width:fit-content" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${a.lat},${a.lng}" target="_blank" rel="noopener">Open Street View here ↗</a>
+  <a class="ext" href="https://www.google.com/maps/search/?api=1&query=${a.lat},${a.lng}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+  <p class="notice">Tap another spot to move. Street View is Google's, so some lanes may have no imagery.</p><div class="row"><button class="btn" type="button" data-act="back">Done</button></div>`;
+}
+
+function detailView() {
+  const p = places.find((x) => x.id === view.id); if (!p) return listView();
+  const c = cat(p.category), h = anchor("home"), o = anchor("office");
+  const dist = ["home", "office", "family"].map((k) => { const a = anchor(k); return a && a.id !== p.id ? `<dt>From ${k === "family" ? "in-laws" : k}</dt><dd>${distText(a, p)}<span class="sub-note" style="display:block">${fmtKm(km(a, p))} straight line</span></dd>` : ""; }).join("");
+  const conf = view.confirmDelete ? `<div class="confirm"><span>Delete <strong>${esc(p.name)}</strong> from your map? This can't be undone.</span><div class="row"><button class="btn danger solid" type="button" data-act="del-yes">Delete</button><button class="btn" type="button" data-act="del-no">Keep it</button></div></div>` : "";
+  return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>
+  <div class="detail">
+    <span class="chip" style="--c:${c.color}">${esc(c.label)}</span>
+    <h2>${esc(p.name)}</h2>
+    ${p.address ? `<p class="note" style="color:var(--muted)">${esc(p.address)}</p>` : ""}
+    ${p.approx ? `<p class="notice"><strong>Approximate location.</strong> Drag the pin to the exact spot and it will be saved.</p>` : ""}
+    ${p.note ? `<p class="note">${esc(p.note)}</p>` : ""}
+    ${fromRow(p.id)}<dl class="facts">${dist}
+      <dt>First visit</dt><dd>${fmtDate(p.firstVisit)}</dd>
+      <dt>Visits</dt><dd>${Number(p.visits || 0)}${p.lastVisit ? ` · last ${fmtDate(p.lastVisit)}` : ""}</dd>
+      <dt>Position</dt><dd class="mono">${(+p.lat).toFixed(5)}° N, ${(+p.lng).toFixed(5)}° E</dd>
+    </dl>
+    <div class="row">
+      <button class="btn primary" type="button" data-act="visit">I went here today</button>
+      <button class="btn" type="button" data-act="edit">Edit</button>
+      <button class="btn danger" type="button" data-act="del">Delete</button>
+    </div>
+    ${conf}
+    ${adjustBlock("p:" + p.id)}
+    <a class="ext" href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}" target="_blank" rel="noopener">Open this spot in Google Maps ↗</a>
+    <a class="ext" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lng}" target="_blank" rel="noopener">See it in Google Street View ↗</a>
+  </div>`;
+}
+
+function pickView() {
+  return `<div><p class="eyebrow">Add a place</p><h2>Tap the map where it is</h2></div><p class="notice">Zoom in first for a precise spot. You can drag the pin later too.</p><div class="row"><button class="btn" type="button" data-act="back">Cancel</button></div>`;
+}
+
+function editView() {
+  const p = view.id ? places.find((x) => x.id === view.id) : null;
+  const v = p || { name: "", category: "other", note: "", address: "", firstVisit: today(), lat: view.lat, lng: view.lng };
+  const opts = Object.entries(CATS).map(([k, c]) => `<option value="${k}"${k === v.category ? " selected" : ""}>${c.label}</option>`).join("");
+  return `<div><p class="eyebrow">${p ? "Edit place" : "New place"}</p><h2>${p ? esc(p.name) : "Name this place"}</h2></div>
+  <form class="edit" id="f-edit">
+    <label for="f-name">Name<input id="f-name" name="name" required maxlength="80" value="${esc(v.name)}" placeholder="e.g. Patna Collectorate"></label>
+    <div class="two">
+      <label for="f-cat">Type<select id="f-cat" name="category">${opts}</select></label>
+      <label for="f-first">First visit<input id="f-first" name="firstVisit" type="date" value="${esc(v.firstVisit || "")}"></label>
+    </div>
+    <label for="f-addr">Area or address<input id="f-addr" name="address" maxlength="120" value="${esc(v.address || "")}" placeholder="e.g. Bailey Road"></label>
+    <label for="f-note">Note to remember it by<textarea id="f-note" name="note" maxlength="600" placeholder="Why you go there, who you meet, how to get in">${esc(v.note || "")}</textarea></label>
+    <p class="mono" style="margin:0;color:var(--muted)">${(+v.lat).toFixed(5)}° N, ${(+v.lng).toFixed(5)}° E</p>
+    <div class="row"><button class="btn primary" type="submit">${p ? "Save changes" : "Save place"}</button><button class="btn" type="button" data-act="${p ? "open" : "back"}">Cancel</button></div>
+  </form>`;
+}
+
+// ---------- road routing (shortest drivable route on the OpenStreetMap network) ----------
+const SPEED = { motorway: 45, trunk: 32, primary: 24, secondary: 22, tertiary: 20, unclassified: 18, residential: 15, living_street: 10, service: 10 };
+let NET = null, netState = "loading";
+const routeCache = new Map();
+function netLoad() {
+  fetch("roadnet.json").then((r) => r.json()).then((raw) => {
+    const n = raw.n.length / 2, E = raw.e, m = E.length / 4;
+    const lat = new Float64Array(n), lng = new Float64Array(n);
+    for (let i = 0; i < n; i++) { lat[i] = raw.n[2 * i] / 1e5; lng[i] = raw.n[2 * i + 1] / 1e5; }
+    const ea = new Int32Array(m), eb = new Int32Array(m), el = new Float64Array(m), ef = new Uint8Array(m), eh = new Uint8Array(m);
+    const deg = new Int32Array(n + 1);
+    for (let i = 0; i < m; i++) {
+      ea[i] = E[4 * i]; eb[i] = E[4 * i + 1]; el[i] = Math.max(1, E[4 * i + 2]); ef[i] = E[4 * i + 3] >> 4; eh[i] = E[4 * i + 3] & 15;
+      deg[ea[i] + 1]++; if (!ef[i]) deg[eb[i] + 1]++;
+    }
+    for (let i = 0; i < n; i++) deg[i + 1] += deg[i];
+    const adjTo = new Int32Array(deg[n]), adjE = new Int32Array(deg[n]), fill = deg.slice(0, n);
+    for (let i = 0; i < m; i++) {
+      adjTo[fill[ea[i]]] = eb[i]; adjE[fill[ea[i]]++] = i;
+      if (!ef[i]) { adjTo[fill[eb[i]]] = ea[i]; adjE[fill[eb[i]]++] = i; }
+    }
+    // edge geometry (absolute lat/lng arrays, including both ends)
+    const geom = (i, fwd = true) => {
+      const g = raw.g[i], pts = [[lat[ea[i]], lng[ea[i]]]];
+      let x = Math.round(lat[ea[i]] * 1e5), y = Math.round(lng[ea[i]] * 1e5);
+      for (let k = 0; k < g.length; k += 2) { x += g[k]; y += g[k + 1]; pts.push([x / 1e5, y / 1e5]); }
+      pts.push([lat[eb[i]], lng[eb[i]]]);
+      return fwd ? pts : pts.reverse();
+    };
+    // grid index of edges for snapping
+    const CELL = 0.004, grid = new Map();
+    for (let i = 0; i < m; i++) {
+      const pts = geom(i), seen = new Set();
+      for (const p of pts) { const k = Math.floor(p[0] / CELL) + ":" + Math.floor(p[1] / CELL); if (!seen.has(k)) { seen.add(k); (grid.get(k) || grid.set(k, []).get(k)).push(i); } }
+    }
+    NET = { n, m, lat, lng, ea, eb, el, ef, eh, deg, adjTo, adjE, geom, grid, CELL, hw: raw.hw };
+    netState = "ready"; routeCache.clear(); rrMemo.clear(); render();
+  }).catch(() => { netState = "failed"; render(); });
+}
+function netSnap(pt) {
+  const { CELL, grid, geom } = NET, ci = Math.floor(pt.lat / CELL), cj = Math.floor(pt.lng / CELL);
+  let best = null;
+  for (let r = 0; r <= 4 && !best; r++) {
+    for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) {
+      if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
+      for (const e of grid.get((ci + di) + ":" + (cj + dj)) || []) {
+        const pts = geom(e); let along = 0;
+        const kx = Math.cos(pt.lat * Math.PI / 180);
+        for (let j = 0; j < pts.length - 1; j++) {
+          const ax = pts[j][1] * kx, ay = pts[j][0], bx = pts[j + 1][1] * kx, by = pts[j + 1][0], px = pt.lng * kx, py = pt.lat;
+          const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+          const t = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
+          const q = { lat: ay + t * dy, lng: (ax + t * dx) / kx }, d = km(pt, q) * 1000;
+          const segm = km({ lat: pts[j][0], lng: pts[j][1] }, { lat: pts[j + 1][0], lng: pts[j + 1][1] }) * 1000;
+          if (!best || d < best.d) best = { e, d, q, along: along + t * segm, seg: j };
+          along += segm;
+        }
+      }
+    }
+  }
+  if (best) { const tot = geom(best.e).reduce((s, p, i, a) => i ? s + km({ lat: a[i - 1][0], lng: a[i - 1][1] }, { lat: p[0], lng: p[1] }) * 1000 : 0, 0) || 1; best.f = best.along / tot; }
+  return best;
+}
+function heapPush(h, c, v) { h.push([c, v]); let i = h.length - 1; while (i) { const p = (i - 1) >> 1; if (h[p][0] <= h[i][0]) break; [h[p], h[i]] = [h[i], h[p]]; i = p; } }
+function heapPop(h) { const top = h[0], last = h.pop(); if (h.length) { h[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let s = i; if (l < h.length && h[l][0] < h[s][0]) s = l; if (r < h.length && h[r][0] < h[s][0]) s = r; if (s === i) break; [h[s], h[i]] = [h[i], h[s]]; i = s; } } return top; }
+// one search per origin, reused for every destination
+function netTree(origin) {
+  const key = origin.lat.toFixed(5) + "," + origin.lng.toFixed(5);
+  if (routeCache.has(key)) return routeCache.get(key);
+  const N = NET, s = netSnap(origin); if (!s) return null;
+  const dist = new Float64Array(N.n).fill(Infinity), prev = new Int32Array(N.n).fill(-1), h = [];
+  const L = N.el[s.e];
+  // leave the snapped point toward b (always allowed) and toward a (if two-way)
+  const toB = L * (1 - s.f), toA = L * s.f;
+  dist[N.eb[s.e]] = toB; heapPush(h, toB, N.eb[s.e]);
+  if (!N.ef[s.e] && toA < dist[N.ea[s.e]]) { dist[N.ea[s.e]] = toA; heapPush(h, toA, N.ea[s.e]); }
+  while (h.length) {
+    const [c, u] = heapPop(h); if (c > dist[u]) continue;
+    for (let k = N.deg[u]; k < N.deg[u + 1]; k++) {
+      const v = N.adjTo[k], e = N.adjE[k], nc = c + N.el[e];
+      if (nc < dist[v]) { dist[v] = nc; prev[v] = e; heapPush(h, nc, v); }
+    }
+  }
+  const tree = { s, dist, prev };
+  routeCache.set(key, tree); return tree;
+}
+// road distance (km), drive time (min) and path from origin to dest
+const rrMemo = new Map();
+function roadRoute(origin, dest) {
+  if (!NET) return null;
+  const mk = `${origin.lat},${origin.lng}|${dest.lat},${dest.lng}`; if (rrMemo.has(mk)) return rrMemo.get(mk);
+  const out = roadRoute_(origin, dest); rrMemo.set(mk, out); return out;
+}
+function roadRoute_(origin, dest) {
+  const T = netTree(origin), d = netSnap(dest); if (!T || !d) return null;
+  const N = NET, L = N.el[d.e];
+  let best = Infinity, via = -1;
+  const fromA = T.dist[N.ea[d.e]] + L * d.f; if (fromA < best) { best = fromA; via = N.ea[d.e]; }
+  if (!N.ef[d.e]) { const fromB = T.dist[N.eb[d.e]] + L * (1 - d.f); if (fromB < best) { best = fromB; via = N.eb[d.e]; } }
+  if (T.s.e === d.e && (d.f >= T.s.f || !N.ef[d.e])) { const same = Math.abs(d.f - T.s.f) * L; if (same < best) { best = same; via = -2; } }
+  if (!isFinite(best)) return null;
+  // rebuild the path and its drive time
+  const legs = []; let mins = 0;
+  const addTime = (e, metres) => { mins += metres / 1000 / (SPEED[N.hw[N.eh[e]]] || 15) * 60; };
+  if (via === -2) addTime(d.e, best);
+  if (via >= 0) {
+    addTime(d.e, via === N.ea[d.e] ? L * d.f : L * (1 - d.f));
+    let u = via, guard = 0;
+    while (T.prev[u] !== -1 && guard++ < 200000) {
+      const e = T.prev[u], from = N.eb[e] === u ? N.ea[e] : N.eb[e];
+      legs.push(N.geom(e, N.eb[e] === u)); addTime(e, N.el[e]); u = from;
+    }
+    addTime(T.s.e, u === N.eb[T.s.e] ? N.el[T.s.e] * (1 - T.s.f) : N.el[T.s.e] * T.s.f);
+  }
+  const path = [[origin.lat, origin.lng], [T.s.q.lat, T.s.q.lng]];
+  for (const g of legs.reverse()) path.push(...g);
+  path.push([d.q.lat, d.q.lng], [dest.lat, dest.lng]);
+  const access = (T.s.d + d.d) * 1.3; // short walk/drive from the door to the mapped road
+  const kmTotal = (best + access) / 1000;
+  return { km: kmTotal, min: Math.max(1, Math.round(mins + access / 1000 / 12 * 60)), path };
+}
+function roadKm(a, b) { const r = roadRoute(a, b); return r ? r.km : km(a, b); }
+function distText(a, b, withTime = true) {
+  const r = roadRoute(a, b);
+  if (r) return `${fmtKm(r.km)} by road${withTime ? ` · about ${r.min} min` : ""}`;
+  return `${fmtKm(km(a, b))} straight line`;
+}
+function drawRoute(a, b) {
+  const r = roadRoute(a, b); if (!r) return;
+  L.polyline(r.path, { color: cssVar("--sheet"), weight: 9, opacity: 0.9, interactive: false }).addTo(lineLayer);
+  L.polyline(r.path, { color: cssVar("--ganga"), weight: 5, opacity: 0.95, interactive: false }).addTo(lineLayer);
+}
+netLoad();
+
+// ---------- sketch maps (not to scale) ----------
+let sketchSel = [];        // [{kind, key, name, hi?, lat?, lng?, cls?, color}]
+let sketchSeed = 1;
+function sketchCatalog() {
+  const out = [];
+  for (const p of places) out.push({ kind: "place", key: "p:" + p.id, name: p.name, lat: p.lat, lng: p.lng, color: cat(p.category).color });
+  LANDMARKS.forEach((l, i) => out.push({ kind: "lm", key: "l:" + i, name: l.name, hi: l.hi, lat: l.lat, lng: l.lng, color: KINDS[l.kind].color }));
+  if (RD) for (const k of [...new Set(BADGES.map((b) => b[0]))]) if (RD.routes[k]) out.push({ kind: "road", key: "r:" + k, route: k, name: BADGES.find((b) => b[0] === k)[1], cls: RD.routes[k].cls });
+  return out;
+}
+function sketchView() {
+  const q = (view.q || "").trim().toLowerCase();
+  const cat_ = sketchCatalog(), chosen = new Set(sketchSel.map((s) => s.key));
+  const hits = cat_.filter((c) => !chosen.has(c.key) && (!q || c.name.toLowerCase().includes(q) || (c.hi || "").includes(q))).slice(0, q ? 12 : 8);
+  const chip = (s) => `<button class="schip" type="button" data-unsk="${esc(s.key)}" title="Remove"><span class="dot${s.kind === "road" ? " bar" : ""}" style="--c:${s.kind === "road" ? `var(--${s.cls})` : s.color}"></span>${esc(s.name)} ✕</button>`;
+  const hit = (c) => `<li><button type="button" data-addsk="${esc(c.key)}"><span class="dot${c.kind === "road" ? " bar" : ""}" style="--c:${c.kind === "road" ? `var(--${c.cls})` : c.color}"></span><span class="nm">${esc(c.name)}<span class="sub">${c.kind === "road" ? "Road" : c.kind === "place" ? "Your place" : "Landmark"}</span></span></button></li>`;
+  return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>
+  <div><p class="eyebrow">Sketch map</p><h2>Pick places and roads</h2></div>
+  <p class="sub-note">Choose 2 to 8. The sketch keeps directions, shortens long gaps, spreads out close spots, and writes the road distance on each link.</p>
+  <div class="chips">${sketchSel.map(chip).join("") || `<span class="sub-note">Nothing picked yet.</span>`}</div>
+  <form class="edit" id="f-sk-title"><label for="sk-title">Sketch title<input id="sk-title" maxlength="80" value="${esc(view.title || "")}" placeholder="e.g. Route to the Collectorate"></label></form>
+  <label class="edit" for="sk-q" style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:500">Find a place or road<input id="sk-q" value="${esc(view.q || "")}" placeholder="Type: Gandhi, NH-22, home…" autocomplete="off" style="border:1px solid var(--rule);border-radius:6px;padding:7px 9px;background:var(--paper);color:var(--ink);font-size:15px"></label>
+  <ul class="list">${hits.map(hit).join("")}</ul>
+  <div class="row"><button class="btn primary" type="button" data-act="sk-draw" ${sketchSel.length < 2 ? "disabled" : ""}>Draw sketch</button>${sketchSel.length ? `<button class="btn" type="button" data-act="sk-clear">Clear</button>` : ""}</div>
+  ${netState !== "ready" ? `<p class="sub-note">Road distances load in a moment; until then links show straight-line distance.</p>` : ""}`;
+}
+function kmXY(ref) { const kx = Math.cos(ref.lat * Math.PI / 180) * 111.32; return (lat, lng) => [(lng - ref.lng) * kx, (lat - ref.lat) * 110.57]; }
+function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+function drawSketch(canvas) {
+  const W2 = 1600, H2 = 1100, DPR = 2;
+  canvas.width = W2 * DPR; canvas.height = H2 * DPR;
+  const ctx = canvas.getContext("2d"); ctx.scale(DPR, DPR);
+  const ink = "#1f2a2a", paper = "#fbfaf5", soft = "#6b7472";
+  const RC = { nh: ["#e9b000", "#7a5c00"], sh: ["#1f9d55", "#0c4a28"], city: ["#9c3344", "#4d1520"] };
+  const rand = rng(sketchSeed);
+  const hand = "'Kalam', 'Comic Sans MS', 'Segoe Print', cursive";
+  ctx.fillStyle = paper; ctx.fillRect(0, 0, W2, H2);
+  const pts = sketchSel.filter((s) => s.kind !== "road"), roads = sketchSel.filter((s) => s.kind === "road");
+  // reference frame
+  let allLL = pts.map((p) => [p.lat, p.lng]);
+  const roadWays = roads.map((r) => RD.ways.filter((w) => w[1] === r.route).map((w) => w[3]));
+  if (!allLL.length) allLL = roadWays.flat(2);
+  const ref = { lat: allLL.reduce((s, p) => s + p[0], 0) / allLL.length, lng: allLL.reduce((s, p) => s + p[1], 0) / allLL.length };
+  const P = kmXY(ref);
+  const tp = pts.map((p) => P(p.lat, p.lng));
+  // keep only the part of each road near the chosen places
+  let bx0 = Math.min(...tp.map((p) => p[0])), bx1 = Math.max(...tp.map((p) => p[0])), by0 = Math.min(...tp.map((p) => p[1])), by1 = Math.max(...tp.map((p) => p[1]));
+  if (!tp.length) { const rp = allLL.map((p) => P(p[0], p[1])); bx0 = Math.min(...rp.map((p) => p[0])); bx1 = Math.max(...rp.map((p) => p[0])); by0 = Math.min(...rp.map((p) => p[1])); by1 = Math.max(...rp.map((p) => p[1])); }
+  const pad = Math.max(1.5, 0.25 * Math.max(bx1 - bx0, by1 - by0));
+  bx0 -= pad; bx1 += pad; by0 -= pad; by1 += pad;
+  const roadParts = roadWays.map((ws) => {
+    const parts = [];
+    for (const g of ws) { let cur = []; for (const [la, ln] of g) { const q = P(la, ln); if (q[0] >= bx0 && q[0] <= bx1 && q[1] >= by0 && q[1] <= by1) cur.push(q); else { if (cur.length > 1) parts.push(cur); cur = []; } } if (cur.length > 1) parts.push(cur); }
+    return parts;
+  });
+  // layout of the chosen places: a spanning tree of nearest links, each link keeps its true bearing, lengths compressed (log)
+  const n = tp.length, D = (i, j) => Math.hypot(tp[i][0] - tp[j][0], tp[i][1] - tp[j][1]);
+  const links = [];
+  if (n > 1) {
+    const inT = new Array(n).fill(false); inT[0] = true;
+    for (let c = 1; c < n; c++) { let b = null; for (let i = 0; i < n; i++) if (inT[i]) for (let j = 0; j < n; j++) if (!inT[j] && (!b || D(i, j) < b[2])) b = [i, j, D(i, j)]; inT[b[1]] = true; links.push(b); }
+  }
+  const dists = links.map((l) => l[2]).sort((a, b) => a - b), s0 = Math.max(0.15, (dists[Math.floor(dists.length / 2)] || 1) / 3);
+  const S = tp.map(() => null);
+  if (n) S[0] = [0, 0];
+  const placed = new Set([0]);
+  let guard = 0;
+  while (placed.size < n && guard++ < 100) for (const [i, j] of links) {
+    const [a, b] = placed.has(i) && !placed.has(j) ? [i, j] : placed.has(j) && !placed.has(i) ? [j, i] : [null, null];
+    if (a === null) continue;
+    const vx = tp[b][0] - tp[a][0], vy = tp[b][1] - tp[a][1], r = Math.hypot(vx, vy) || 1e-6, Lc = Math.log1p(r / s0) + 0.6;
+    S[b] = [S[a][0] + vx / r * Lc, S[a][1] + vy / r * Lc]; placed.add(b);
+  }
+  // spread out anything still too close
+  for (let it = 0; it < 80; it++) for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    const dx = S[j][0] - S[i][0], dy = S[j][1] - S[i][1], d = Math.hypot(dx, dy), min = 0.9;
+    if (d < min) { const ux = d ? dx / d : (tp[j][0] - tp[i][0]) || 1, uy = d ? dy / d : (tp[j][1] - tp[i][1]); const k = (min - d) / 2 / (Math.hypot(ux, uy) || 1); S[i][0] -= ux * k; S[i][1] -= uy * k; S[j][0] += ux * k; S[j][1] += uy * k; }
+  }
+  // warp: global similarity + inverse-distance blend so roads follow the moved places
+  let warp;
+  if (n >= 2) {
+    const cx = tp.reduce((s, p) => s + p[0], 0) / n, cy = tp.reduce((s, p) => s + p[1], 0) / n, sx = S.reduce((s, p) => s + p[0], 0) / n, sy = S.reduce((s, p) => s + p[1], 0) / n;
+    const k = (S.reduce((s, p) => s + Math.hypot(p[0] - sx, p[1] - sy), 0) / n) / ((tp.reduce((s, p) => s + Math.hypot(p[0] - cx, p[1] - cy), 0) / n) || 1);
+    const T0 = (p) => [sx + (p[0] - cx) * k, sy + (p[1] - cy) * k];
+    const off = tp.map((p, i) => [S[i][0] - T0(p)[0], S[i][1] - T0(p)[1]]);
+    warp = (p) => { const b = T0(p); let wx = 0, wy = 0, ws = 0; for (let i = 0; i < n; i++) { const d2 = (p[0] - tp[i][0]) ** 2 + (p[1] - tp[i][1]) ** 2 + 1e-6, w = 1 / (d2 * d2); wx += w * off[i][0]; wy += w * off[i][1]; ws += w; } return [b[0] + wx / ws, b[1] + wy / ws]; };
+  } else { const c = n ? tp[0] : [0, 0], o = n ? S[0] : [0, 0]; warp = (p) => [o[0] + p[0] - c[0], o[1] + p[1] - c[1]]; }
+  let rparts = roadParts.map((parts) => parts.map((g) => g.map(warp)));
+  // fit everything on the sheet (north up)
+  const all = S.filter(Boolean).concat(rparts.flat(2));
+  const X0 = Math.min(...all.map((p) => p[0])), X1 = Math.max(...all.map((p) => p[0])), Y0 = Math.min(...all.map((p) => p[1])), Y1 = Math.max(...all.map((p) => p[1]));
+  const M = { l: 110, r: 110, t: 150, b: 120 }, sc = Math.min((W2 - M.l - M.r) / ((X1 - X0) || 1), (H2 - M.t - M.b) / ((Y1 - Y0) || 1));
+  const ox = M.l + ((W2 - M.l - M.r) - (X1 - X0) * sc) / 2, oy = M.t + ((H2 - M.t - M.b) - (Y1 - Y0) * sc) / 2;
+  const px = (p) => [ox + (p[0] - X0) * sc, H2 - (oy + (p[1] - Y0) * sc)];
+  const simp = (a, eps) => { if (a.length < 3) return a; let dm = 0, ix = 0; const [x0, y0] = a[0], [x1, y1] = a[a.length - 1], L = Math.hypot(x1 - x0, y1 - y0) || 1e-9; for (let i = 1; i < a.length - 1; i++) { const d = Math.abs((y1 - y0) * a[i][0] - (x1 - x0) * a[i][1] + x1 * y0 - y1 * x0) / L; if (d > dm) { dm = d; ix = i; } } return dm > eps ? simp(a.slice(0, ix + 1), eps).slice(0, -1).concat(simp(a.slice(ix), eps)) : [a[0], a[a.length - 1]]; };
+  const rpx = rparts.map((parts) => parts.map((g) => simp(g.map(px), 7)).filter((g) => g.length > 1));
+  const sp = S.map((p) => p && px(p));
+  // places that sit on a chosen road are pulled onto it
+  pts.forEach((p, i) => {
+    roads.forEach((r, ri) => {
+      const near = roadWays[ri].some((g) => g.some(([la, ln]) => km({ lat: la, lng: ln }, p) < 0.2));
+      if (!near) return;
+      let best = null;
+      for (const g of rpx[ri]) for (let j = 0; j < g.length - 1; j++) { const [ax, ay] = g[j], [bx, by] = g[j + 1], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy, t = L2 ? Math.max(0, Math.min(1, ((sp[i][0] - ax) * dx + (sp[i][1] - ay) * dy) / L2)) : 0, q = [ax + t * dx, ay + t * dy], d = Math.hypot(q[0] - sp[i][0], q[1] - sp[i][1]); if (!best || d < best[1]) best = [q, d]; }
+      if (best && best[1] < 90) sp[i] = best[0];
+    });
+  });
+  const wob = (a) => a + (rand() - 0.5) * 2.2;
+  const rough = (g, w, col) => { for (let pass = 0; pass < 2; pass++) { ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.lineJoin = "round"; g.forEach(([x, y], k) => k ? ctx.lineTo(wob(x), wob(y)) : ctx.moveTo(wob(x), wob(y))); ctx.stroke(); } };
+  // paper border
+  ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.strokeRect(30, 30, W2 - 60, H2 - 60);
+  // roads: dark casing + colour fill, double-line look
+  rpx.forEach((parts, ri) => { const [fillc, edge] = RC[roads[ri].cls]; for (const g of parts) rough(g, 15, edge); for (const g of parts) rough(g, 10, fillc); });
+  // road labels along their longest stretch
+  const boxes = [];
+  ctx.textBaseline = "middle";
+  rpx.forEach((parts, ri) => {
+    let best = null; for (const g of parts) for (let j = 0; j < g.length - 1; j++) { const L = Math.hypot(g[j + 1][0] - g[j][0], g[j + 1][1] - g[j][1]); if (!best || L > best[2]) best = [g[j], g[j + 1], L]; }
+    if (!best) return;
+    let [a, b] = best; if (b[0] < a[0]) [a, b] = [b, a];
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    ctx.save(); ctx.translate(mx, my); ctx.rotate(ang); ctx.font = `700 22px ${hand}`; const t = roads[ri].name, tw = ctx.measureText(t).width;
+    ctx.fillStyle = paper; ctx.fillRect(-tw / 2 - 8, -30, tw + 16, 26); ctx.fillStyle = RC[roads[ri].cls][1]; ctx.textAlign = "center"; ctx.fillText(t, 0, -17); ctx.restore();
+    boxes.push([mx - tw / 2, my - 30, tw, 30]);
+  });
+  // distance links between neighbouring places
+  links.forEach(([i, j]) => {
+    const a = sp[i], b = sp[j], r = roadRoute(pts[i], pts[j]), label = r ? `${fmtKm(r.km)} by road` : `${fmtKm(km(pts[i], pts[j]))} (straight)`;
+    ctx.save(); ctx.setLineDash([10, 9]); ctx.strokeStyle = soft; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); ctx.restore();
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2; ctx.font = `700 21px ${hand}`; const tw = ctx.measureText(label).width;
+    ctx.fillStyle = paper; ctx.strokeStyle = soft; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect?.(mx - tw / 2 - 10, my - 16, tw + 20, 32, 14); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = ink; ctx.textAlign = "center"; ctx.fillText(label, mx, my + 1);
+    boxes.push([mx - tw / 2 - 10, my - 16, tw + 20, 32]);
+  });
+  // places: pins and labels placed where they overlap least
+  const over = (r) => boxes.reduce((s, b) => s + Math.max(0, Math.min(r[0] + r[2], b[0] + b[2]) - Math.max(r[0], b[0])) * Math.max(0, Math.min(r[1] + r[3], b[1] + b[3]) - Math.max(r[1], b[1])), 0) + (r[0] < 40 || r[1] < 40 || r[0] + r[2] > W2 - 40 || r[1] + r[3] > H2 - 40 ? 1e6 : 0);
+  sp.forEach(([x, y]) => boxes.push([x - 14, y - 14, 28, 28]));
+  pts.forEach((p, i) => {
+    const [x, y] = sp[i];
+    ctx.beginPath(); ctx.arc(x, y, 13, 0, Math.PI * 2); ctx.fillStyle = p.color.startsWith("var") ? cssVar(p.color.slice(4, -1)) || ink : p.color; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = ink; ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fillStyle = paper; ctx.fill();
+    ctx.font = `700 26px ${hand}`; const tw = ctx.measureText(p.name).width; ctx.font = `400 19px ${hand}`; const hw2 = p.hi ? ctx.measureText(p.hi).width : 0;
+    const w = Math.max(tw, hw2), h = p.hi ? 52 : 30;
+    const cands = [[x + 22, y - h / 2], [x - 22 - w, y - h / 2], [x - w / 2, y - 24 - h], [x - w / 2, y + 22], [x + 18, y - h - 10], [x - 18 - w, y - h - 10], [x + 18, y + 10], [x - 18 - w, y + 10]];
+    let best = cands[0], bs = Infinity; for (const c of cands) { const sc2 = over([c[0], c[1], w, h]); if (sc2 < bs) { bs = sc2; best = c; } }
+    ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillStyle = paper; ctx.globalAlpha = 0.85; ctx.fillRect(best[0] - 4, best[1] - 2, w + 8, h + 2); ctx.globalAlpha = 1;
+    ctx.fillStyle = ink; ctx.font = `700 26px ${hand}`; ctx.fillText(p.name, best[0], best[1]);
+    if (p.hi) { ctx.fillStyle = soft; ctx.font = `400 19px ${hand}`; ctx.fillText(p.hi, best[0], best[1] + 30); }
+    boxes.push([best[0], best[1], w, h]); ctx.textBaseline = "middle";
+  });
+  // title, north arrow, notes
+  ctx.textAlign = "left"; ctx.fillStyle = ink; ctx.font = `700 40px ${hand}`; ctx.fillText(view.title || "Sketch map", 64, 86);
+  ctx.font = `400 20px ${hand}`; ctx.fillStyle = soft; ctx.fillText(`Patna · ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`, 66, 124);
+  const nx = W2 - 100, ny = 110; ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(nx, ny - 45); ctx.lineTo(nx - 16, ny + 15); ctx.lineTo(nx, ny + 3); ctx.lineTo(nx + 16, ny + 15); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(nx, ny - 45); ctx.lineTo(nx, ny + 3); ctx.lineTo(nx + 16, ny + 15); ctx.closePath(); ctx.fill();
+  ctx.font = `700 26px ${hand}`; ctx.textAlign = "center"; ctx.fillText("N", nx, ny - 62);
+  ctx.save(); ctx.translate(W2 - 170, H2 - 80); ctx.rotate(-0.06); ctx.strokeStyle = "#a62a2a"; ctx.lineWidth = 3; ctx.strokeRect(-110, -26, 220, 50); ctx.fillStyle = "#a62a2a"; ctx.font = `700 26px ${hand}`; ctx.fillText("NOT TO SCALE", 0, 1); ctx.restore();
+  ctx.textAlign = "left"; ctx.fillStyle = soft; ctx.font = `400 18px ${hand}`;
+  ctx.fillText(netState === "ready" ? "Distances are by road (shortest drivable route)." : "Distances are straight-line.", 64, H2 - 92);
+  const used = [...new Set(roads.map((r) => r.cls))];
+  let lx = 64; for (const c of used) { ctx.fillStyle = RC[c][0]; ctx.fillRect(lx, H2 - 66, 34, 10); ctx.fillStyle = soft; const t = { nh: "National Highway", sh: "State Highway / MDR", city: "City road" }[c]; ctx.fillText(t, lx + 42, H2 - 61); lx += 60 + ctx.measureText(t).width; }
+}
+async function openSketch() {
+  const host = $("#sketch"), cv = $("#sketch-canvas");
+  host.hidden = false;
+  try { await document.fonts.load("700 26px Kalam"); } catch {}
+  drawSketch(cv);
+}
+async function saveSketch() {
+  const cv = $("#sketch-canvas"), dl = await window.claude?.use?.("downloads").catch?.(() => null);
+  if (!dl) { flash("Saving isn't available in this view. Open the page on claude.ai to save the sketch."); return; }
+  cv.toBlob(async (blob) => {
+    const name = (view.title || "patna-sketch").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "patna-sketch";
+    try { await dl.save({ filename: `${name}.png`, data: blob }); }
+    catch (e) { if (e?.code !== "declined") flash("The image could not be saved. Try again."); }
+  }, "image/png");
+}
+
+
+// ---------- search (places, landmarks, roads and their local names) ----------
+function searchIndex() {
+  const out = [];
+  for (const p of places) out.push({ t: "Your place", name: p.name, sub: p.address || "", dot: `style="--c:${cat(p.category).color}"`, go: () => { go({ mode: "detail", id: p.id }); map.flyTo([p.lat, p.lng], Math.max(map.getZoom(), 15)); } });
+  LANDMARKS.forEach((l, i) => out.push({ t: "Landmark", name: l.name, alt: l.hi, sub: l.hi, dot: `class="dot diamond" style="--c:${KINDS[l.kind].color}"`, go: () => { go({ mode: "lm", i }); map.flyTo([l.lat, l.lng], Math.max(map.getZoom(), 15)); } }));
+  if (RD) {
+    const flyWays = (ws) => { const pts = ws.flatMap((w) => w[3]); if (pts.length) map.flyToBounds(L.latLngBounds(pts).pad(0.15), { maxZoom: 16 }); };
+    for (const [k, r] of Object.entries(RD.routes)) out.push({ t: ROAD_CLASS[r.cls].label, name: r.name, alt: r.hi, sub: r.sub?.length ? r.sub.map((x) => x[0]).slice(0, 3).join(", ") : `${r.km} km`, dot: `class="dot bar" style="--c:var(--${r.cls})"`, go: () => { go({ mode: "road", key: k, tap: null }); flyWays(RD.ways.filter((w) => w[1] === k)); } });
+    const alias = (name, sub, key, filterName, at) => out.push({ t: ROAD_CLASS[RD.routes[key]?.cls || "city"].label, name, sub, dot: `class="dot bar" style="--c:var(--${RD.routes[key]?.cls || "city"})"`, go: () => {
+      let ws = RD.ways.filter((w) => w[1] === key && (!filterName || w[4] === filterName));
+      if (at) { const near = (w) => Math.min(...w[3].map((p) => (p[0] - at[0]) ** 2 + (p[1] - at[1]) ** 2)); ws = ws.filter((w) => near(w) < 0.0004); }
+      go({ mode: "road", key, tap: null }); flyWays(ws.length ? ws : RD.ways.filter((w) => w[1] === key)); } });
+    if (RD.routes["NH-922"]) alias("Jawaharlal Nehru Marg", "Bailey Road · NH-922", "NH-922", "Bailey Road");
+    if (RD.routes["NH-22"]) { alias("New Bypass", "NH-22 along the southern edge", "NH-22", null, [25.5846, 85.1450]); alias("Patna–Gaya Road", "NH-22 heading south", "NH-22", null, [25.5550, 85.1200]); }
+    const seen = new Set(Object.keys(RD.routes));
+    RD.ways.forEach((w, i) => {
+      const nm = w[4]; if (!nm || seen.has(nm) || !w[1]) return; seen.add(nm);
+      const r = RD.routes[w[1]];
+      out.push({ t: "Road", name: nm, sub: `Part of ${r.name}`, dot: `class="dot bar" style="--c:var(--${r.cls})"`, go: () => { const ws = RD.ways.filter((x) => x[4] === nm); const longest = ws.reduce((a, b) => wayLen(b[3]) > wayLen(a[3]) ? b : a); go({ mode: "road", key: w[1], way: RD.ways.indexOf(longest), tap: null }); flyWays(ws); } });
+    });
+  }
+  return out;
+}
+(() => {
+  const input = $("#q"), list = $("#q-res");
+  let hits = [], sel = 0;
+  const norm = (t) => String(t || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9ऀ-ॿ]+/g, " ").trim();
+  const score = (item, q) => {
+    const n = norm(item.name), a = norm(item.alt), s2 = norm(item.sub);
+    if (n === q) return 0; if (n.startsWith(q)) return 1; if (n.split(" ").some((w) => w.startsWith(q))) return 2;
+    if (a && a.includes(q)) return 2.5; if (n.includes(q)) return 3; if (s2.includes(q)) return 4;
+    if (q.length > 3 && n.replace(/ /g, "").includes(q.replace(/ /g, ""))) return 3.5;
+    return -1;
+  };
+  const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); };
+  const show = () => {
+    const q = norm(input.value);
+    if (!q) { close(); return; }
+    hits = searchIndex().map((it) => [score(it, q), it]).filter(([s]) => s >= 0).sort((a, b) => a[0] - b[0] || a[1].name.length - b[1].name.length).slice(0, 12).map(([, it]) => it);
+    sel = 0;
+    list.innerHTML = hits.length ? hits.map((h, i) => `<li role="option" id="q-${i}" data-i="${i}" aria-selected="${i === sel}"><span class="dot" ${h.dot}></span><span class="nm">${esc(h.name)}${h.sub ? `<small>${esc(h.sub)}</small>` : ""}</span><span class="ty">${esc(h.t)}</span></li>`).join("")
+      : `<li class="none">Nothing matches “${esc(input.value)}”. Try part of the name, such as “Gandhi” or “NH”.</li>`;
+    list.hidden = false; input.setAttribute("aria-expanded", "true");
+  };
+  const pick = (i) => { const h = hits[i]; if (!h) return; close(); input.value = h.name; input.blur(); h.go(); };
+  const mark = () => list.querySelectorAll("li[data-i]").forEach((li) => { const on = +li.dataset.i === sel; li.setAttribute("aria-selected", String(on)); if (on) li.scrollIntoView({ block: "nearest" }); });
+  input.addEventListener("input", show);
+  input.addEventListener("focus", () => { if (input.value) show(); });
+  input.addEventListener("keydown", (e) => {
+    if (list.hidden) return;
+    if (e.key === "ArrowDown") { sel = Math.min(hits.length - 1, sel + 1); mark(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { sel = Math.max(0, sel - 1); mark(); e.preventDefault(); }
+    else if (e.key === "Enter") { pick(sel); e.preventDefault(); }
+    else if (e.key === "Escape") close();
+  });
+  list.addEventListener("pointerdown", (e) => { const li = e.target.closest("li[data-i]"); if (li) { e.preventDefault(); pick(+li.dataset.i); } });
+  document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".search")) close(); });
+})();
+
+// the city's spine: Saguna Mor → Income Tax Golambar → Gandhi Maidan → Ashok Rajpath → Patna City
+function spineStops() { const byName = (n) => LANDMARKS.find((l) => l.name === n); return ["Saguna Mor", "Income Tax Golambar", "Gandhi Maidan", "PMCH", "Takht Sri Harmandir Sahib"].map(byName).filter(Boolean); }
+function drawSpine() {
+  const stops = spineStops(), pts = [];
+  for (let i = 0; i < stops.length - 1; i++) { const r = roadRoute(stops[i], stops[i + 1]); pts.push(...(r ? r.path : [[stops[i].lat, stops[i].lng], [stops[i + 1].lat, stops[i + 1].lng]])); }
+  L.polyline(pts, { color: cssVar("--sheet"), weight: 11, opacity: 0.9, interactive: false }).addTo(lineLayer);
+  const line = L.polyline(pts, { color: cssVar("--ganga"), weight: 6, opacity: 0.95, interactive: false }).addTo(lineLayer);
+  stops.forEach((s, i) => L.marker([s.lat, s.lng], { interactive: false, icon: L.divIcon({ className: "", html: `<div class="endpin">${i + 1}</div>`, iconSize: [0, 0] }) }).addTo(lineLayer));
+  return line;
+}
+function traceSpine() {
+  flashMsg = "The spine: 1 Saguna Mor, 2 Income Tax Golambar, 3 Gandhi Maidan, 4 Ashok Rajpath at PMCH, 5 Patna City. Everything else hangs off this line.";
+  go({ mode: "list", trace: true });
+  const st = spineStops(); if (st.length) map.flyToBounds(L.latLngBounds(st.map((x) => [x.lat, x.lng])).pad(0.15), { duration: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1 });
+  setTimeout(() => { if (flashMsg.startsWith("The spine")) { flashMsg = ""; render(); } }, 9000);
+}
+// quiz: your places, landmarks and roads, 10 at a time
+let quiz = { order: [], i: 0, guess: null, total: 0, good: 0, sumKm: 0 };
+const QUIZ_LEN = 10;
+function quizItems() {
+  return [
+    ...places.map((p) => ({ kind: "place", name: p.name, lat: p.lat, lng: p.lng, note: p.note || "" })),
+    ...LANDMARKS.map((l) => ({ kind: "lm", name: l.name, hi: l.hi, lat: l.lat, lng: l.lng, note: l.note })),
+    ...(RD ? [...new Map(BADGES.filter((b) => RD.routes[b[0]]).map((b) => [b[0], b])).values()].map(([k, text]) => ({ kind: "road", name: text, hi: RD.routes[k].hi, road: k })) : []),
+  ];
+}
+function startQuiz() {
+  const pool = quizItems();
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  quiz = { order: pool.slice(0, QUIZ_LEN), i: 0, guess: null, total: 0, good: 0, sumKm: 0, miss: 0, target: null };
+  lineLayer.clearLayers();
+  go({ mode: "quiz" });
+}
+function quizView() {
+  const p = quiz.order[quiz.i];
+  if (!p) return `<h2>Round finished</h2><p class="score">${quiz.good}/${quiz.total} within 500 m · average miss ${quiz.total ? fmtKm(quiz.sumKm / quiz.total) : "—"}</p><div class="row"><button class="btn primary" type="button" data-act="quiz-again">Play again</button><button class="btn" type="button" data-act="quiz-end">Back to my map</button></div>`;
+  const score = `<p class="score">Question ${quiz.i + 1} of ${quiz.order.length} · ${quiz.good}/${quiz.total} within 500 m</p>`;
+  const what = p.kind === "road" ? "Tap anywhere on this road." : "Tap the map where you think it is.";
+  const title = `${esc(p.name)}${p.hi ? ` <span class="hi-q">${esc(p.hi)}</span>` : ""}`;
+  if (!quiz.guess) return `<p class="eyebrow">Test my memory</p><p class="q">Where is ${title}?</p>${score}<p class="notice">Labels are hidden and the map is blurred. ${what}</p><div class="row"><button class="btn" type="button" data-act="quiz-end">Stop</button></div>`;
+  const d = quiz.miss;
+  const cls = d <= 0.5 ? "good" : d <= 2 ? "near" : "far";
+  const word = d <= 0.5 ? "Well remembered." : d <= 2 ? "Close." : "Not quite.";
+  return `<p class="eyebrow">Test my memory</p><p class="q">${title}</p>${score}<p class="verdict ${cls}">${word} You were ${fmtKm(d)} away.</p>${p.note ? `<p class="note">${esc(p.note)}</p>` : ""}<div class="row"><button class="btn primary" type="button" data-act="quiz-next">Next</button><button class="btn" type="button" data-act="quiz-end">Stop</button></div>`;
+}
+function quizClick(ll) {
+  if (quiz.guess) return;
+  const p = quiz.order[quiz.i]; if (!p) return;
+  quiz.guess = { lat: ll.lat, lng: ll.lng };
+  let target, d;
+  if (p.kind === "road") { const n = nearestOnRoute(p.road, quiz.guess); target = n.point; d = n.d; }
+  else { target = { lat: p.lat, lng: p.lng }; d = km(quiz.guess, target); }
+  quiz.miss = d; quiz.total++; quiz.sumKm += d; if (d <= 0.5) quiz.good++;
+  lineLayer.clearLayers();
+  const ink = cssVar("--ganga");
+  if (p.kind === "road") highlightRoute(p.road);
+  L.marker(ll, { interactive: false, icon: L.divIcon({ className: "", html: '<div class="guess-dot"></div>', iconSize: [0, 0] }) }).addTo(lineLayer);
+  L.circleMarker([target.lat, target.lng], { radius: 9, color: ink, weight: 3, fillOpacity: 0.3, interactive: false }).addTo(lineLayer);
+  L.polyline([ll, [target.lat, target.lng]], { color: ink, weight: 2, dashArray: "4 6", interactive: false }).addTo(lineLayer);
+  map.fitBounds(L.latLngBounds([ll, [target.lat, target.lng]]).pad(0.5), { maxZoom: 16 });
+  quizRender();
+}
+function quizRender() { const keep = lineLayer.getLayers(); render(); keep.forEach((l) => l.addTo(lineLayer)); }
+
+map.on("click", (e) => {
+  if (view.mode === "pick") go({ mode: "edit", id: null, lat: +e.latlng.lat.toFixed(6), lng: +e.latlng.lng.toFixed(6) });
+  else if (view.mode === "quiz") quizClick(e.latlng);
+  else if (view.mode === "sv") go({ mode: "sv", at: { lat: e.latlng.lat, lng: e.latlng.lng } });
+});
+
+$("#btn-sketch").onclick = () => go(view.mode === "sketch" ? { mode: "list" } : { mode: "sketch", q: "", title: view.title || "" });
+$("#sk-close").onclick = () => { $("#sketch").hidden = true; };
+$("#sk-redraw").onclick = () => { sketchSeed++; drawSketch($("#sketch-canvas")); };
+$("#sk-save").onclick = () => saveSketch();
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#sketch").hidden) $("#sketch").hidden = true; });
+$("#btn-add").onclick = () => go(view.mode === "pick" ? { mode: "list" } : { mode: "pick" });
+$("#btn-quiz").onclick = () => view.mode === "quiz" ? go({ mode: "list" }) : startQuiz();
+
+function bind(panel) {
+  panel.querySelectorAll("[data-open]").forEach((b) => b.onclick = () => {
+    const p = places.find((x) => x.id === b.dataset.open); go({ mode: "detail", id: b.dataset.open });
+    if (p) map.flyTo([p.lat, p.lng], Math.max(map.getZoom(), 15), { duration: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 0.6 });
+  });
+  panel.querySelectorAll("[data-lm]").forEach((b) => b.onclick = () => {
+    const i = +b.dataset.lm, l = LANDMARKS[i]; go({ mode: "lm", i });
+    map.flyTo([l.lat, l.lng], Math.max(map.getZoom(), 15), { duration: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 0.6 });
+  });
+  panel.querySelectorAll("[data-road]").forEach((b) => b.onclick = () => {
+    const key = b.dataset.road, pts = RD.ways.filter((w) => w[1] === key).flatMap((w) => w[3]);
+    go({ mode: "road", key, tap: null });
+    if (pts.length) map.flyToBounds(L.latLngBounds(pts).pad(0.15), { maxZoom: 16, duration: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 0.6 });
+  });
+  panel.querySelectorAll("[data-from]").forEach((b) => b.onclick = () => go({ ...view, from: b.dataset.from }));
+  panel.querySelectorAll("[data-addsk]").forEach((b) => b.onclick = () => { const c = sketchCatalog().find((x) => x.key === b.dataset.addsk); if (c && sketchSel.length < 8) sketchSel.push(c); go({ ...view, q: "" }); });
+  panel.querySelectorAll("[data-unsk]").forEach((b) => b.onclick = () => { sketchSel = sketchSel.filter((x) => x.key !== b.dataset.unsk); render(); });
+  const skq = $("#sk-q", panel);
+  if (skq) { skq.oninput = () => { view.q = skq.value; view.focusQ = true; render(); }; if (view.focusQ) { skq.focus(); skq.setSelectionRange(skq.value.length, skq.value.length); } }
+  const skt = $("#sk-title", panel); if (skt) { skt.oninput = () => { view.title = skt.value; }; }
+  const skf = $("#f-sk-title", panel); if (skf) skf.onsubmit = (e) => e.preventDefault();
+  panel.querySelectorAll("[data-act]").forEach((b) => b.onclick = async () => {
+    const a = b.dataset.act, p = places.find((x) => x.id === view.id);
+    if (a === "back") go({ mode: "list" });
+    else if (a === "open") go({ mode: "detail", id: view.id });
+    else if (a === "edit") go({ mode: "edit", id: view.id });
+    else if (a === "del") go({ ...view, confirmDelete: true });
+    else if (a === "del-no") go({ mode: "detail", id: view.id });
+    else if (a === "del-yes") { try { await col.doc(view.id).delete(); go({ mode: "list" }); } catch (e) { flash(`Could not delete: ${e?.message || "try again"}`); } }
+    else if (a === "visit" && p) {
+      const t = today();
+      if (p.lastVisit === t) { flash("Today's visit is already counted."); return; }
+      b.disabled = true;
+      await save(p.id, { visits: Number(p.visits || 0) + 1, lastVisit: t, firstVisit: p.firstVisit || t });
+    }
+    else if (a === "quiz-next") { quiz.i++; quiz.guess = null; lineLayer.clearLayers(); render(); }
+    else if (a === "quiz-again") startQuiz();
+    else if (a === "trace") traceSpine();
+    else if (a === "adj-on") go({ ...view, adjust: b.dataset.key });
+    else if (a === "adj-done") go({ ...view, adjust: null });
+    else if (a === "sk-draw") openSketch();
+    else if (a === "sk-clear") { sketchSel = []; render(); }
+    else if (a === "road-edit") go({ ...view, mode: "roadedit" });
+    else if (a === "road-back") go({ ...view, mode: "road" });
+    else if (a === "quiz-end") { lineLayer.clearLayers(); go({ mode: "list" }); }
+  });
+  const pf = $("#f-pos", panel);
+  if (pf) pf.onsubmit = async (e) => {
+    e.preventDefault();
+    const ll = parseLatLng($("#pos-in", panel).value);
+    if (!ll) { flash("Paste coordinates like 25.58815, 85.10591, or a full Google Maps link. Short maps.app.goo.gl links can't be read here; open them in Google Maps first and copy the full link."); return; }
+    const pos = { lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6) };
+    if (view.adjust?.startsWith("p:")) { await save(view.adjust.slice(2), { ...pos, approx: false }); }
+    else if (view.adjust?.startsWith("l:")) {
+      const i = +view.adjust.slice(2), l = LANDMARKS[i], rec = { ...pos, name: l.name, at: new Date().toISOString() };
+      l.lat = pos.lat; l.lng = pos.lng; lmFix[lmSlug(l.name)] = rec; lmMarkers[i].setLatLng([pos.lat, pos.lng]); lmMarkers[i].setIcon(lmIcon(l));
+      try { await db.collection("lmfix").doc(lmSlug(l.name)).set(rec); } catch { flash("The new position could not be saved."); return; }
+    }
+    rrMemo.clear(); routeCache.clear(); map.flyTo([pos.lat, pos.lng], Math.max(map.getZoom(), 16));
+    go({ ...view, adjust: null }); flash("Position set and locked.");
+  };
+  const rf = $("#f-road", panel);
+  if (rf) rf.onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(rf), data = {};
+    for (const k of ["builtBy", "agency", "maintainedBy", "cost", "year", "remarks"]) data[k] = String(fd.get(k) || "").trim();
+    data.road = view.key; data.updatedAt = new Date().toISOString();
+    rf.querySelector("[type=submit]").disabled = true;
+    try { await db.collection("roads").doc(roadSlug(view.key)).set(data); go({ ...view, mode: "road" }); }
+    catch (err) { flash(`Could not save: ${err?.message || "try again"}`); }
+  };
+  const form = $("#f-edit", panel);
+  if (form) form.onsubmit = async (e) => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    const data = {
+      name: String(fd.get("name") || "").trim(), category: String(fd.get("category")),
+      firstVisit: String(fd.get("firstVisit") || ""), address: String(fd.get("address") || "").trim(), note: String(fd.get("note") || "").trim(),
+    };
+    if (!data.name) { flash("Give the place a name."); return; }
+    form.querySelector("[type=submit]").disabled = true;
+    try {
+      if (view.id) { await save(view.id, data); go({ mode: "detail", id: view.id }); }
+      else {
+        const ref = await col.add({ ...data, lat: view.lat, lng: view.lng, visits: data.firstVisit ? 1 : 0, lastVisit: data.firstVisit || "", approx: false, createdAt: new Date().toISOString() });
+        go({ mode: "detail", id: ref.id });
+      }
+    } catch (err) { flash(`Could not save: ${err?.message || "try again"}`); }
+  };
+}
+
+render();
+})();
+</script>
+
+</body></html>

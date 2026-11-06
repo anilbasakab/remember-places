@@ -1,0 +1,48 @@
+{
+ "places": {
+  "office": {
+   "address": "Bailey Road, Patna · Road Construction Department",
+   "approx": false,
+   "category": "office",
+   "createdAt": "2026-11-06T00:00:00Z",
+   "firstVisit": "2026-09-09",
+   "lastVisit": "2026-11-06",
+   "lat": 25.60722,
+   "lng": 85.1157,
+   "name": "Office · Visvesvaraya Bhavan",
+   "note": "Road Construction Department. Google Timeline: 40 days, about 241 h in total.",
+   "updatedAt": "2026-11-06T17:20:00Z",
+   "visits": 40
+  },
+  "in-laws": {
+   "address": "Near V Bazaar Mall, Jaganpura, New Bypass Road, Patna",
+   "approx": false,
+   "category": "family",
+   "createdAt": "2026-11-06T00:00:00Z",
+   "firstVisit": "2026-09-09",
+   "lastVisit": "2026-11-04",
+   "lat": 25.58286,
+   "lng": 85.15319,
+   "name": "In-laws' house",
+   "note": "Pin set from Google Timeline: your third most frequent place, in Jaganpura near the bypass (19 days, about 168 h).",
+   "updatedAt": "2026-11-06T17:20:00Z",
+   "visits": 19
+  },
+  "home": {
+   "address": "Block E3, Flat 603, Officers Enclave, Road No. 21, Khagaul–Anisabad Road, Gardani Bagh, Patna",
+   "approx": false,
+   "category": "home",
+   "createdAt": "2026-11-06T00:00:00Z",
+   "firstVisit": "2026-09-09",
+   "lastVisit": "2026-11-06",
+   "lat": 25.58815,
+   "lng": 85.10591,
+   "name": "Home",
+   "note": "Living here since 9 September 2026. Pin set from Google Timeline's HOME location.",
+   "updatedAt": "2026-11-06T17:20:00Z",
+   "visits": 42
+  }
+ },
+ "roads": {},
+ "lmfix": {}
+}

@@ -38,7 +38,7 @@
 })();
 </script>
 </head><body>
-<title>Patna Places</title>
+<title>Remember Places</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Martel:wght@600;800&family=Kalam:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -831,7 +831,20 @@ p.q { font-family: var(--font-display); font-size: 22px; font-weight: 800; margi
 .sketch[hidden] { display: none; }
 body { grid-template-columns: minmax(0, 1fr); }
 header.bar { min-width: 0; }
-.layers { flex-basis: 100%; min-width: 0; max-width: 100%; display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.layerbar { flex-basis: 100%; min-width: 0; display: flex; align-items: center; gap: 8px; position: relative; }
+.lmenu-btn { flex: none; width: 36px; height: 32px; border-radius: 8px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); font-size: 18px; line-height: 1; cursor: pointer; }
+.lmenu-btn[aria-expanded="true"] { background: var(--ganga); color: var(--sheet); border-color: var(--ganga); }
+.lmenu { position: absolute; left: 0; top: calc(100% + 6px); z-index: 1600; width: min(300px, calc(100vw - 32px)); max-height: min(70vh, 560px); overflow-y: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; box-shadow: 0 8px 28px rgb(0 0 0 / .2); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.lmenu[hidden], .q-res[hidden] { display: none; }
+.lmenu .lg { margin: 8px 6px 2px; }
+.lmenu .lchip { border: 0; border-radius: 8px; background: none; padding: 8px 10px; width: 100%; justify-content: flex-start; font-size: 14px; }
+.lmenu .lchip:hover { background: var(--ganga-soft); }
+.lmenu .lchip[aria-pressed="false"] { border: 0; background: none; }
+.lmenu .lchip.master { font-weight: 700; }
+.lmenu .ck { width: 18px; height: 18px; border: 1.5px solid var(--rule); border-radius: 4px; display: inline-grid; place-items: center; }
+.lmenu .lchip[aria-pressed="true"] .ck { background: var(--ganga); border-color: var(--ganga); color: var(--sheet); }
+.brand h1 { text-wrap: balance; }
+.layers { flex: 1 1 auto; min-width: 0; max-width: 100%; display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
 .layers .lg { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; margin-left: 6px; }
 .layers .lg:first-child { margin-left: 0; }
 .lchip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); border-radius: 99px; padding: 4px 10px 4px 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
@@ -866,7 +879,7 @@ body.fullmap #map { height: 100%; }
 .q-res .nm small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
 .q-res .ty { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
 .q-res .none { display: block; color: var(--muted); cursor: default; }
-@media (max-width: 760px) { .search { order: 1; flex-basis: 100%; max-width: none; } .layers { order: 2; } .modes { order: 3; } .legend { font-size: 10px; padding: 4px 7px; gap: 1px; } .legend i { width: 14px; } }
+@media (max-width: 760px) { .search { order: 1; flex-basis: 100%; max-width: none; } .layerbar { order: 2; } .brand h1 { font-size: 18px; line-height: 1.25; } .modes { order: 3; } .legend { font-size: 10px; padding: 4px 7px; gap: 1px; } .legend i { width: 14px; } }
 .sk-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sk-bar strong { font-family: var(--font-display); font-size: 18px; }
 .sk-sp { flex: 1; }
@@ -947,8 +960,8 @@ body.fullmap #map { height: 100%; }
 
 <header class="bar">
   <div class="brand">
-    <h1>Patna Places</h1><span class="hi">पटना</span>
-    <span class="since">Living here since 9 Sep 2026</span>
+    <h1>Welcome to Anil Basak's Remember Places Portal</h1>
+    <span class="since">Patna · since 9 Sep 2026</span>
   </div>
   <div class="search" role="search">
     <input id="q" type="search" placeholder="Search a place or road…" autocomplete="off" aria-label="Search places and roads" aria-controls="q-res" aria-expanded="false">
@@ -958,8 +971,13 @@ body.fullmap #map { height: 100%; }
     <button class="btn" id="btn-add" type="button">+ Add place</button>
     <button class="btn" id="btn-quiz" type="button">Test my memory</button>
     <button class="btn" id="btn-sketch" type="button">Sketch</button>
+    <button class="btn" id="btn-remember" type="button" aria-expanded="false">How to remember Patna</button>
   </div>
-  <nav class="layers" id="layers" aria-label="Show on map"></nav>
+  <div class="layerbar">
+    <button type="button" class="lmenu-btn" id="lmenu-btn" aria-label="All map layers" aria-expanded="false" aria-controls="lmenu">☰</button>
+    <nav class="layers" id="layers" aria-label="Show on map"></nav>
+    <div class="lmenu" id="lmenu" role="menu" hidden></div>
+  </div>
 </header>
 <main>
   <div id="map" aria-label="Map of Patna"></div>
@@ -1078,7 +1096,16 @@ function renderLayers() {
     `<span class="lg">Roads</span>${chip("roads", "All roads", null, null, true)}${LAYER_DEFS.roads.map(([k, l, sh, c]) => chip(k, l, sh, c)).join("")}` +
     `<span class="lg">Landmarks</span>${chip("landmarks", "All landmarks", null, null, true)}${LAYER_DEFS.landmarks.map(([k, l, sh]) => chip(k, l, sh)).join("")}` +
     `<span class="lg">Mine</span>${chip("places", "My places", "dia", "var(--home)")}`;
+  $("#lmenu").innerHTML = $("#layers").innerHTML.replace(/class="lchip/g, 'role="menuitemcheckbox" class="lchip');
+  $("#lmenu").querySelectorAll(".lchip").forEach((b) => b.setAttribute("aria-checked", b.getAttribute("aria-pressed")));
 }
+(() => {
+  const btn = $("#lmenu-btn"), menu = $("#lmenu");
+  const setOpen = (on) => { menu.hidden = !on; btn.setAttribute("aria-expanded", String(on)); };
+  btn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(menu.hidden); });
+  document.addEventListener("pointerdown", (e) => { if (!menu.hidden && !e.target.closest(".lmenu, #lmenu-btn")) setOpen(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) { setOpen(false); btn.focus(); } });
+})();
 function applyShow() {
   LANDMARKS.forEach((l, i) => { const m = lmMarkers[i]; if (!m) return; const on = isOn(l.kind); if (on && !lmLayer.hasLayer(m)) lmLayer.addLayer(m); if (!on && lmLayer.hasLayer(m)) lmLayer.removeLayer(m); });
   try { if (RD) { drawRoads(); drawBadges(); } } catch {}
@@ -1339,10 +1366,11 @@ function render() {
   $("#btn-add").classList.toggle("on", view.mode === "pick" || (view.mode === "edit" && !view.id));
   $("#btn-quiz").classList.toggle("on", view.mode === "quiz");
   $("#btn-sketch").classList.toggle("on", view.mode === "sketch");
+  $("#btn-remember").classList.toggle("on", view.mode === "remember"); $("#btn-remember").setAttribute("aria-expanded", String(view.mode === "remember"));
   $("#btn-add").disabled = dbState !== "ready"; $("#btn-quiz").disabled = false;
   const panel = $("#panel");
   const f = flashMsg ? `<p class="notice" role="status">${esc(flashMsg)}</p>` : "";
-  panel.innerHTML = f + ({ list: listView, detail: detailView, edit: editView, pick: pickView, quiz: quizView, lm: lmView, road: roadView, roadedit: roadEditView, sv: svView, sketch: sketchView }[view.mode] || listView)();
+  panel.innerHTML = f + ({ list: listView, detail: detailView, edit: editView, pick: pickView, quiz: quizView, lm: lmView, road: roadView, roadedit: roadEditView, sv: svView, sketch: sketchView, remember: rememberView }[view.mode] || listView)();
   setView(view.mode); $("#map").classList.toggle("picking", view.mode === "pick" || view.mode === "sv");
   bind(panel);
 }
@@ -1359,14 +1387,16 @@ function listView() {
     const d = ref && ref.id !== p.id ? `${fmtKm(roadKm(ref, p))} from ${ref.category === "home" ? "home" : "office"}` : "";
     return `<li><button type="button" data-open="${esc(p.id)}"><span class="dot" style="--c:${cat(p.category).color}"></span><span class="nm">${esc(p.name)}<span class="sub">${esc(cat(p.category).label)}${p.approx ? " · approximate location" : ""}</span></span><span class="km">${d}</span></button></li>`;
   }).join("");
-  const mnemo = `<div class="mnemo"><p class="eyebrow">How to remember Patna</p>
+  return `<div><p class="eyebrow">Your places · ${places.length}</p><h2>Your three anchors</h2></div>${between}<ul class="list">${items}</ul>
+  <p class="notice">Pins are locked. To move one, open it and tap <strong>Adjust position</strong>. Tap anything on the map to see its road distance from home.</p>
+  ${refLists()}`;
+}
+function rememberView() {
+  return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div><div class="mnemo"><p class="eyebrow">How to remember Patna</p>
     <p>A long east–west strip on the south bank of the Ganga, from Danapur in the west to Patna City and Didarganj in the east. Three parallel corridors carry the city, with the railway between them:</p>
     <ol><li>JP Ganga Path and Ashok Rajpath along the river</li><li>Bailey Road through the middle</li><li>The bypasses south of the railway, past Kankarbagh</li></ol>
     <p>Trace Bailey Road from Saguna Mor east to Income Tax Golambar, then Gandhi Maidan, Ashok Rajpath and Patna City.</p>
-    <div class="row"><button class="btn primary" type="button" data-act="trace">Trace it on the map</button></div></div>`;
-  return `${mnemo}<div><p class="eyebrow">Your places · ${places.length}</p><h2>Your three anchors</h2></div>${between}<ul class="list">${items}</ul>
-  <p class="notice">Pins are locked. To move one, open it and tap <strong>Adjust position</strong>. Tap anything on the map to see its road distance from home.</p>
-  ${refLists()}`;
+    <div class="row"><button class="btn primary" type="button" data-act="trace">Trace it on the map</button><button class="btn" type="button" data-act="back">Close</button></div></div>`;
 }
 function refLists() {
   const h = anchor("home");
@@ -1978,6 +2008,7 @@ map.on("click", (e) => {
   else if (view.mode === "sv") go({ mode: "sv", at: { lat: e.latlng.lat, lng: e.latlng.lng } });
 });
 
+$("#btn-remember").onclick = () => { go(view.mode === "remember" ? { mode: "list" } : { mode: "remember" }); if (document.body.classList.contains("fullmap")) setFull(false); };
 $("#btn-sketch").onclick = () => go(view.mode === "sketch" ? { mode: "list" } : { mode: "sketch", q: "", title: view.title || "" });
 $("#sk-close").onclick = () => { $("#sketch").hidden = true; };
 $("#sk-redraw").onclick = () => { sketchSeed++; drawSketch($("#sketch-canvas")); };

@@ -829,6 +829,23 @@ p.q { font-family: var(--font-display); font-size: 22px; font-weight: 800; margi
 .sketch { position: fixed; inset: 0; z-index: 2000; background: color-mix(in srgb, var(--paper) 94%, transparent); display: flex; flex-direction: column; gap: 10px;
   padding-block: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .sketch[hidden] { display: none; }
+body { grid-template-columns: minmax(0, 1fr); }
+header.bar { min-width: 0; }
+.layers { flex-basis: 100%; min-width: 0; max-width: 100%; display: flex; gap: 6px; align-items: center; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; -webkit-overflow-scrolling: touch; }
+.layers .lg { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; margin-left: 6px; }
+.layers .lg:first-child { margin-left: 0; }
+.lchip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); border-radius: 99px; padding: 4px 10px 4px 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.lchip .sw { width: 14px; height: 14px; border-radius: 4px; background: var(--c); display: inline-grid; place-items: center; color: #fff; font-size: 10px; line-height: 1; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .15); }
+.lchip .sw.line { height: 6px; width: 18px; border-radius: 3px; }
+.lchip .sw.ring { background: var(--sheet); border: 3px solid var(--c); border-radius: 50%; width: 13px; height: 13px; }
+.lchip .sw.dia { transform: rotate(45deg) scale(.8); border-radius: 2px; }
+.lchip .ck { font-size: 12px; color: var(--ganga); width: 12px; text-align: center; }
+.lchip[aria-pressed="false"] { background: var(--paper); color: var(--muted); border-style: dashed; }
+.lchip[aria-pressed="false"] .sw { opacity: .3; }
+.lchip[aria-pressed="false"] .ck { color: transparent; }
+.lchip.master { border-color: var(--ganga); }
+.lchip:focus-visible { outline: 2px solid var(--ganga); outline-offset: 2px; }
+.legend span[data-off] { opacity: .35; text-decoration: line-through; }
 body.fullmap { grid-template-rows: 1fr; }
 body.fullmap header.bar { display: none; }
 body.fullmap main { grid-template-columns: 1fr !important; grid-template-rows: 1fr !important; }
@@ -849,7 +866,7 @@ body.fullmap #map { height: 100%; }
 .q-res .nm small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
 .q-res .ty { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
 .q-res .none { display: block; color: var(--muted); cursor: default; }
-@media (max-width: 760px) { .search { order: 1; flex-basis: 100%; max-width: none; } .modes { order: 2; } .legend { font-size: 10px; padding: 4px 7px; gap: 1px; } .legend i { width: 14px; } }
+@media (max-width: 760px) { .search { order: 1; flex-basis: 100%; max-width: none; } .layers { order: 2; } .modes { order: 3; } .legend { font-size: 10px; padding: 4px 7px; gap: 1px; } .legend i { width: 14px; } }
 .sk-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .sk-bar strong { font-family: var(--font-display); font-size: 18px; }
 .sk-sp { flex: 1; }
@@ -898,7 +915,7 @@ body.fullmap #map { height: 100%; }
 .rb-city { background: var(--city-bg); color: var(--city-ink); border-color: var(--city); }
 .legend, .viewbar { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 1px 4px rgb(0 0 0 / .15); }
 .legend { padding: 6px 10px; font-size: 12px; display: flex; flex-direction: column; gap: 3px; color: var(--ink); }
-.legend span { display: flex; align-items: center; gap: 7px; }
+.legend span { display: flex; align-items: center; gap: 7px; cursor: pointer; }
 .legend i { width: 22px; height: 4px; border-radius: 2px; background: var(--c); }
 .viewbar { display: flex; flex-wrap: wrap; padding: 3px; gap: 3px; max-width: calc(100vw - 90px); }
 .viewbar button, .viewbar a { border: 0; background: none; color: var(--ink); font-size: 13px; font-weight: 600; padding: 5px 9px; border-radius: 6px; cursor: pointer; text-decoration: none; line-height: 1.2; }
@@ -941,9 +958,8 @@ body.fullmap #map { height: 100%; }
     <button class="btn" id="btn-add" type="button">+ Add place</button>
     <button class="btn" id="btn-quiz" type="button">Test my memory</button>
     <button class="btn" id="btn-sketch" type="button">Sketch</button>
-    <button class="btn on" id="btn-lm" type="button" aria-pressed="true">Landmarks</button>
-    <button class="btn on" id="btn-roads" type="button" aria-pressed="true">Roads</button>
   </div>
+  <nav class="layers" id="layers" aria-label="Show on map"></nav>
 </header>
 <main>
   <div id="map" aria-label="Map of Patna"></div>
@@ -1042,7 +1058,43 @@ function syncLmDrag() { lmMarkers.forEach((m, i) => { if (!m.dragging) return; i
 function applyLmFix() {
   LANDMARKS.forEach((l, i) => { const f = lmFix[lmSlug(l.name)]; if (f) { l.lat = f.lat; l.lng = f.lng; lmMarkers[i].setLatLng([f.lat, f.lng]); lmMarkers[i].setIcon(lmIcon(l)); } });
 }
-$("#btn-lm").onclick = (e) => toggleLayer(lmLayer, e.currentTarget);
+// ---------- what to show: road classes, landmark types, your places ----------
+const LAYER_DEFS = {
+  roads: [["nh", "NH", "line", "var(--nh)"], ["sh", "SH / MDR", "line", "var(--sh)"], ["city", "City roads", "line", "var(--city)"]],
+  landmarks: [["transport", "Stations & bridges", "dia"], ["govt", "Government", "dia"], ["health", "Hospitals", "dia"], ["heritage", "Heritage", "dia"], ["park", "Parks", "dia"], ["chowk", "Chowks", "ring"], ["locality", "Localities", "txt"]],
+};
+let SHOW = { places: true };
+try { Object.assign(SHOW, JSON.parse(localStorage.getItem("patna-places:show") || "{}")); } catch {}
+const saveShow = () => { try { localStorage.setItem("patna-places:show", JSON.stringify(SHOW)); } catch {} };
+const isOn = (k) => SHOW[k] !== false;
+function renderLayers() {
+  const chip = (k, label, shape, color, master) => {
+    const on = master ? LAYER_DEFS[k].some(([x]) => isOn(x)) : isOn(k);
+    const c = color || (KINDS[k] ? KINDS[k].color : "var(--ganga)");
+    const sw = shape === "txt" ? `<span class="sw" style="--c:${c};background:none;box-shadow:none;color:${c};font-weight:800;font-size:11px;width:auto">Aa</span>` : `<span class="sw ${shape || ""}" style="--c:${c}"></span>`;
+    return `<button type="button" class="lchip${master ? " master" : ""}" data-layer="${k}"${master ? ' data-master="1"' : ""} aria-pressed="${on}"><span class="ck">✓</span>${shape ? sw : ""}${esc(label)}</button>`;
+  };
+  $("#layers").innerHTML =
+    `<span class="lg">Roads</span>${chip("roads", "All roads", null, null, true)}${LAYER_DEFS.roads.map(([k, l, sh, c]) => chip(k, l, sh, c)).join("")}` +
+    `<span class="lg">Landmarks</span>${chip("landmarks", "All landmarks", null, null, true)}${LAYER_DEFS.landmarks.map(([k, l, sh]) => chip(k, l, sh)).join("")}` +
+    `<span class="lg">Mine</span>${chip("places", "My places", "dia", "var(--home)")}`;
+}
+function applyShow() {
+  LANDMARKS.forEach((l, i) => { const m = lmMarkers[i]; if (!m) return; const on = isOn(l.kind); if (on && !lmLayer.hasLayer(m)) lmLayer.addLayer(m); if (!on && lmLayer.hasLayer(m)) lmLayer.removeLayer(m); });
+  try { if (RD) { drawRoads(); drawBadges(); } } catch {}
+  const anyRoad = LAYER_DEFS.roads.some(([k]) => isOn(k));
+  $("#map").classList.toggle("no-roads", !anyRoad);
+  document.querySelectorAll(".legend span[data-k]").forEach((s) => { if (isOn(s.dataset.k)) s.removeAttribute("data-off"); else s.setAttribute("data-off", ""); });
+  renderLayers();
+  try { syncMarkers(); } catch {}
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest?.(".lchip"); if (!b) return;
+  const k = b.dataset.layer;
+  if (b.dataset.master) { const on = !LAYER_DEFS[k].some(([x]) => isOn(x)); LAYER_DEFS[k].forEach(([x]) => { SHOW[x] = on; }); }
+  else SHOW[k] = !isOn(k);
+  saveShow(); applyShow();
+});
 const syncZoom = () => { const z = map.getZoom(); $("#map").classList.toggle("zoom-low", z < 13.5); $("#map").classList.toggle("zoom-mid", z >= 13.5 && z < 14.5); };
 map.on("zoomend", syncZoom); syncZoom();
 
@@ -1075,7 +1127,7 @@ function drawRoads() {
   roadLines.clearLayers();
   const col = { nh: cssVar("--nh"), sh: cssVar("--sh"), city: cssVar("--city") };
   const order = { city: 0, sh: 1, nh: 2 };
-  RD.ways.map((w, i) => [w, i]).sort((a, b) => order[a[0][0]] - order[b[0][0]]).forEach(([w, i]) => {
+  RD.ways.map((w, i) => [w, i]).filter(([w]) => SHOW[w[0]] !== false).sort((a, b) => order[a[0][0]] - order[b[0][0]]).forEach(([w, i]) => {
     const pl = L.polyline(w[3], { renderer: roadRenderer, color: col[w[0]], weight: W[w[2]] || 3, opacity: w[0] === "city" ? 0.6 : 0.95, lineCap: "round" });
     pl.on("click", (e) => { if (view.mode === "pick" || view.mode === "quiz" || view.mode === "sv") return; go({ mode: "road", key: w[1], way: i, tap: e.latlng }); });
     roadLines.addLayer(pl);
@@ -1097,7 +1149,7 @@ function badgeSpots(key, filter, at) {
 function drawBadges() {
   roadBadges.clearLayers();
   for (const [key, text, filter, at] of BADGES) {
-    const r = RD.routes[key]; if (!r) continue;
+    const r = RD.routes[key]; if (!r || SHOW[r.cls] === false) continue;
     for (const p of badgeSpots(key, filter, at)) {
       const m = L.marker(p, { keyboard: false, title: r.name, icon: L.divIcon({ className: "road-badge-wrap", html: `<span class="road-badge rb-${r.cls}">${esc(text)}</span>`, iconSize: [0, 0], iconAnchor: [0, 0] }) });
       m.on("click", () => { if (view.mode !== "pick" && view.mode !== "quiz" && view.mode !== "sv") go({ mode: "road", key, tap: { lat: p[0], lng: p[1] } }); });
@@ -1105,9 +1157,9 @@ function drawBadges() {
     }
   }
 }
-fetch("roads.json").then((r) => r.json()).then((d) => { RD = d; drawRoads(); drawBadges(); roadLayer.addTo(map); lmLayer.bringToFront?.(); render(); }).catch(() => {});
+fetch("roads.json").then((r) => r.json()).then((d) => { RD = d; drawRoads(); drawBadges(); roadLayer.addTo(map); applyShow(); lmLayer.bringToFront?.(); render(); }).catch(() => {});
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => drawRoads());
-$("#btn-roads").onclick = (e) => { toggleLayer(roadLayer, e.currentTarget); $("#map").classList.toggle("no-roads", !map.hasLayer(roadLayer)); };
+
 
 function nearestOnRoute(key, pt) {
   const kx = Math.cos(pt.lat * Math.PI / 180);
@@ -1156,11 +1208,14 @@ const Legend = L.Control.extend({
   options: { position: "bottomleft" },
   onAdd() {
     const el = L.DomUtil.create("div", "legend");
-    el.innerHTML = `<span><i style="--c:var(--nh)"></i>National Highway</span><span><i style="--c:var(--sh)"></i>State Highway / MDR</span><span><i style="--c:var(--city)"></i>City road</span>`;
+    el.innerHTML = `<span data-k="nh" role="button" tabindex="0" title="Show or hide"><i style="--c:var(--nh)"></i>National Highway</span><span data-k="sh" role="button" tabindex="0" title="Show or hide"><i style="--c:var(--sh)"></i>State Highway / MDR</span><span data-k="city" role="button" tabindex="0" title="Show or hide"><i style="--c:var(--city)"></i>City road</span>`;
+    L.DomEvent.disableClickPropagation(el);
+    el.addEventListener("click", (e) => { const s = e.target.closest("span[data-k]"); if (!s) return; SHOW[s.dataset.k] = !isOn(s.dataset.k); saveShow(); applyShow(); });
     return el;
   },
 });
 new Legend().addTo(map);
+try { applyShow(); } catch {}
 function setView(v) {
   const cur = v === "sv" ? "sv" : satOn ? "sat" : "map";
   document.querySelectorAll(".viewbar [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === cur));
@@ -1225,6 +1280,7 @@ function syncMarkers() {
     m.setLatLng([p.lat, p.lng]); m.setIcon(pinIcon(p, sel)); m.setZIndexOffset(sel ? 1000 : 0);
     if (view.adjust === "p:" + p.id) m.dragging.enable(); else m.dragging.disable();
     m.options.title = p.name;
+    if (SHOW.places === false) { if (map.hasLayer(m)) map.removeLayer(m); } else if (!map.hasLayer(m)) m.addTo(map);
   }
 }
 function drawLines() {

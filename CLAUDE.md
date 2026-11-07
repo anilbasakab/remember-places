@@ -38,7 +38,12 @@ to local paths before re-running.
 
 ## Next steps the owner asked for
 1. ~~Fix gap 1~~ (done).
-2. **Google Maps base layer** on the public site (not possible inside claude.ai):
+2. **Google Maps base layer**: built 7 Nov 2026 in `index.html` only (the claude.ai copy in `tools/` does not have it). Still to do: test routes, search and Street View once the owner has a real key.
+   - "Google Maps ⚙" button: the owner pastes his key there; it is stored in that browser's localStorage (`patna-places:gkey`), never in the repo. Without a key nothing from Google loads.
+   - With a key: Google / Google sat base layers via Leaflet.GoogleMutant 0.15.0 (official Maps JS underneath, our layers on top), live Traffic toggle, Street View inside the panel, "Google Maps · from home" box on place and landmark cards (Route class, `TRAFFIC_AWARE`, 10-minute in-memory cache) with "Show Google's route", and Google results under our own in search (`AutocompleteSuggestion`, Places API (New)).
+   - Google places and routes are drawn only while a Google base layer is on (their terms). A rejected key switches back to the OSM map and the settings box says why.
+   - Google made the old Directions API and Places API "legacy" on 1 Mar 2025, so the key needs **Maps JavaScript API, Routes API and Places API (New)**.
+   Original request:
    - He creates a Google Cloud API key restricted to `rememberplaces.duckdns.org`, with the Maps JavaScript, Directions and Places APIs, and a usage cap so nothing is billed. Never ask him to paste the key in chat; add a settings box in the page that stores it in localStorage, or have him put it in a config file himself.
    - Keep our own layers (NH/SH/city colours, landmarks, chowks, sketch, quiz) drawn on top. Use Google for search, Directions (exact distance and live traffic), embedded Street View and the traffic layer.
    - Google's terms: no caching of Google tiles, and no extracting Google road geometry.

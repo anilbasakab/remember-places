@@ -1012,6 +1012,7 @@ body.fullmap #map { height: 100%; }
     <button class="btn" id="btn-sketch" type="button">Sketch</button>
     <button class="btn" id="btn-remember" type="button" aria-expanded="false">How to remember Patna</button>
     <button class="btn" id="btn-google" type="button">Google Maps ⚙</button>
+    <button class="btn primary" id="btn-install" type="button" hidden>📲 Install app</button>
   </div>
   <div class="layerbar">
     <button type="button" class="lmenu-btn" id="lmenu-btn" aria-label="All map layers" aria-expanded="false" aria-controls="lmenu">☰</button>
@@ -1073,6 +1074,7 @@ const fmtDate = (s) => { if (!s) return "—"; const d = new Date(s + "T00:00:00
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 // ---------- map ----------
+L.Icon.Default.prototype.options.imagePath = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/";
 const map = L.map("map", { minZoom: 11, maxZoom: 18, maxBounds: BOUNDS.pad(0.05), zoomSnap: 0.5 }).setView([25.603, 85.122], 14);let TILES = {};
 const LocalTiles = L.GridLayer.extend({
   createTile(c) {
@@ -2846,6 +2848,20 @@ function bind(panel) {
     } catch (err) { flash(`Could not save: ${err?.message || "try again"}`); }
   };
 }
+
+// ---------- install as an app (Chrome shows its own prompt; iPhone uses Share → Add to Home Screen) ----------
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js").catch(() => {});
+let installEvt = null;
+const isStandalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; if (!isStandalone) $("#btn-install").hidden = false; });
+window.addEventListener("appinstalled", () => { installEvt = null; $("#btn-install").hidden = true; flash("Installed. Open Remember Places from your home screen or app list."); });
+if (isIOS && !isStandalone) $("#btn-install").hidden = false;
+$("#btn-install").onclick = async () => {
+  if (installEvt) { installEvt.prompt(); try { const { outcome } = await installEvt.userChoice; if (outcome === "accepted") $("#btn-install").hidden = true; } catch {} installEvt = null; }
+  else if (isIOS) flash("On iPhone or iPad: open this page in Safari, tap the Share button, then “Add to Home Screen”.");
+  else flash("Open Chrome's menu (⋮) and choose “Add to Home screen” or “Install app”.");
+};
 
 render();
 // reopen with the base layer used last time

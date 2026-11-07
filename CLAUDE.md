@@ -16,7 +16,7 @@ A single static page, `index.html`, plus data files loaded with `fetch()`:
 | `tiles.json` | OpenStreetMap tiles for central Patna, zoom 11–16, as base64 data URIs | `tools/fetch_osm_tiles.py` |
 | `satellite.json` | Esri World Imagery tiles, same area and zooms | `tools/sat.py` |
 | `roads.json` | Major roads (motorway→tertiary) with class nh / sh / city, route groups, lengths, start/end descriptions | Overpass query → `tools/build_roads.py` → `tools/geo_ends.py` |
-| `roadnet.json` | Routable road graph used for road distance and drive time | `tools/graph2.py` |
+| `roadnet.json` | Routable road graph (full drivable network of the Patna bbox) used for road distance and drive time | `py tools/build_roadnet.py` (downloads from Overpass in 21 tiles, caches in `tools/osm_cache/`, which is git-ignored). `tools/graph2.py` is the old cloud-only version. |
 | `seed.json` | Home, office and in-laws' house pins (first-load data) | exported from the claude.ai version |
 | `CNAME`, `manifest.webmanifest`, `icon*` | Domain and home-screen app settings | `tools/pages_build.py` |
 
@@ -32,12 +32,12 @@ to local paths before re-running.
 - Outside claude.ai, a small shim at the top of `index.html` stands in for `window.claude`: data saves in each browser's localStorage, seeded from `seed.json`.
 
 ## Known gaps
-1. **Road network is incomplete.** The routing graph has every major road in Patna, but side streets only for the south-west, because the Overpass server kept timing out from the cloud. Trips near Bailey Road and the office come out too long; office → Old Secretariat shows about 2.9 km where Google says about 1 km. Fix: download the full drivable network for bbox 25.545,85.015,25.665,85.295 (Overpass in smaller tiles, or a Geofabrik `eastern-zone` extract cut with osmium) and rebuild `roadnet.json` with `tools/graph2.py`.
+1. ~~Road network is incomplete.~~ **Fixed 7 Nov 2026.** `roadnet.json` now holds the full drivable network (32k nodes, 40k segments, 1.4 MB). The long detours were mostly caused by pins snapping onto a single one-way flyover next to the office, not by missing streets. Routing now (a) never snaps a pin onto a bridge, flyover or tunnel (bit 32 in each edge's flag), and (b) connects each pin to every road within 120 m of its nearest road and picks the best overall route. Office → Old Secretariat is now 1.3 km (it was 2.1 km), including about 200 m from each pin to a public road; the office campus lanes are `access=private` in OSM and are left out.
 2. **Old Bypass** isn't named in OSM. Ask the owner for two points it passes, then add a label.
 3. OSM numbers the southern bypass **NH-22**; the owner knows it as NH-30/NH-31. Confirm the current number with him.
 
 ## Next steps the owner asked for
-1. **Fix gap 1** first (accurate road distances).
+1. ~~Fix gap 1~~ (done).
 2. **Google Maps base layer** on the public site (not possible inside claude.ai):
    - He creates a Google Cloud API key restricted to `rememberplaces.duckdns.org`, with the Maps JavaScript, Directions and Places APIs, and a usage cap so nothing is billed. Never ask him to paste the key in chat; add a settings box in the page that stores it in localStorage, or have him put it in a config file himself.
    - Keep our own layers (NH/SH/city colours, landmarks, chowks, sketch, quiz) drawn on top. Use Google for search, Directions (exact distance and live traffic), embedded Street View and the traffic layer.

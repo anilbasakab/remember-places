@@ -1575,10 +1575,10 @@ function netLoad() {
     const n = raw.n.length / 2, E = raw.e, m = E.length / 4;
     const lat = new Float64Array(n), lng = new Float64Array(n);
     for (let i = 0; i < n; i++) { lat[i] = raw.n[2 * i] / 1e5; lng[i] = raw.n[2 * i + 1] / 1e5; }
-    const ea = new Int32Array(m), eb = new Int32Array(m), el = new Float64Array(m), ef = new Uint8Array(m), eh = new Uint8Array(m);
+    const ea = new Int32Array(m), eb = new Int32Array(m), el = new Float64Array(m), ef = new Uint8Array(m), ez = new Uint8Array(m), eh = new Uint8Array(m);
     const deg = new Int32Array(n + 1);
     for (let i = 0; i < m; i++) {
-      ea[i] = E[4 * i]; eb[i] = E[4 * i + 1]; el[i] = Math.max(1, E[4 * i + 2]); ef[i] = E[4 * i + 3] >> 4; eh[i] = E[4 * i + 3] & 15;
+      ea[i] = E[4 * i]; eb[i] = E[4 * i + 1]; el[i] = Math.max(1, E[4 * i + 2]); ef[i] = (E[4 * i + 3] >> 4) & 1; ez[i] = (E[4 * i + 3] >> 5) & 1; eh[i] = E[4 * i + 3] & 15;
       deg[ea[i] + 1]++; if (!ef[i]) deg[eb[i] + 1]++;
     }
     for (let i = 0; i < n; i++) deg[i + 1] += deg[i];
@@ -1601,55 +1601,65 @@ function netLoad() {
       const pts = geom(i), seen = new Set();
       for (const p of pts) { const k = Math.floor(p[0] / CELL) + ":" + Math.floor(p[1] / CELL); if (!seen.has(k)) { seen.add(k); (grid.get(k) || grid.set(k, []).get(k)).push(i); } }
     }
-    NET = { n, m, lat, lng, ea, eb, el, ef, eh, deg, adjTo, adjE, geom, grid, CELL, hw: raw.hw };
+    NET = { n, m, lat, lng, ea, eb, el, ef, ez, eh, deg, adjTo, adjE, geom, grid, CELL, hw: raw.hw };
     netState = "ready"; routeCache.clear(); rrMemo.clear(); render();
   }).catch(() => { netState = "failed"; render(); });
 }
-function netSnap(pt) {
-  const { CELL, grid, geom } = NET, ci = Math.floor(pt.lat / CELL), cj = Math.floor(pt.lng / CELL);
-  let best = null;
-  for (let r = 0; r <= 4 && !best; r++) {
+// all usable roads near a point: the nearest one plus any within SNAP_SLACK metres of it.
+// Flyovers, bridges and tunnels are skipped (a pin beside them can't join them directly).
+const SNAP_SLACK = 120, SNAP_CAP = 300, ACCESS = 1.3;
+function netSnaps(pt) {
+  const { CELL, grid, geom, ez } = NET, ci = Math.floor(pt.lat / CELL), cj = Math.floor(pt.lng / CELL);
+  const kx = Math.cos(pt.lat * Math.PI / 180), per = new Map();
+  for (let r = 0; r <= 4; r++) {
+    if (r > 1 && per.size) break; // rings 0-1 always cover 350 m+ around the point
     for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) {
       if (Math.max(Math.abs(di), Math.abs(dj)) !== r) continue;
       for (const e of grid.get((ci + di) + ":" + (cj + dj)) || []) {
-        const pts = geom(e); let along = 0;
-        const kx = Math.cos(pt.lat * Math.PI / 180);
+        if (ez[e] || per.has(e)) continue;
+        const pts = geom(e); let along = 0, best = null;
         for (let j = 0; j < pts.length - 1; j++) {
           const ax = pts[j][1] * kx, ay = pts[j][0], bx = pts[j + 1][1] * kx, by = pts[j + 1][0], px = pt.lng * kx, py = pt.lat;
           const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
           const t = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
           const q = { lat: ay + t * dy, lng: (ax + t * dx) / kx }, d = km(pt, q) * 1000;
           const segm = km({ lat: pts[j][0], lng: pts[j][1] }, { lat: pts[j + 1][0], lng: pts[j + 1][1] }) * 1000;
-          if (!best || d < best.d) best = { e, d, q, along: along + t * segm, seg: j };
+          if (!best || d < best.d) best = { e, d, q, along: along + t * segm };
           along += segm;
         }
+        best.f = along ? best.along / along : 0;
+        per.set(e, best);
       }
     }
   }
-  if (best) { const tot = geom(best.e).reduce((s, p, i, a) => i ? s + km({ lat: a[i - 1][0], lng: a[i - 1][1] }, { lat: p[0], lng: p[1] }) * 1000 : 0, 0) || 1; best.f = best.along / tot; }
-  return best;
+  if (!per.size) return [];
+  const all = [...per.values()], dmin = Math.min(...all.map((c) => c.d));
+  const lim = Math.min(dmin + SNAP_SLACK, Math.max(dmin, SNAP_CAP));
+  return all.filter((c) => c.d <= lim);
 }
 function heapPush(h, c, v) { h.push([c, v]); let i = h.length - 1; while (i) { const p = (i - 1) >> 1; if (h[p][0] <= h[i][0]) break; [h[p], h[i]] = [h[i], h[p]]; i = p; } }
 function heapPop(h) { const top = h[0], last = h.pop(); if (h.length) { h[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let s = i; if (l < h.length && h[l][0] < h[s][0]) s = l; if (r < h.length && h[r][0] < h[s][0]) s = r; if (s === i) break; [h[s], h[i]] = [h[i], h[s]]; i = s; } } return top; }
-// one search per origin, reused for every destination
+// one search per origin, reused for every destination. It starts from every nearby road at once;
+// each start costs the walk/drive from the pin to that road (straight line x ACCESS).
 function netTree(origin) {
   const key = origin.lat.toFixed(5) + "," + origin.lng.toFixed(5);
   if (routeCache.has(key)) return routeCache.get(key);
-  const N = NET, s = netSnap(origin); if (!s) return null;
-  const dist = new Float64Array(N.n).fill(Infinity), prev = new Int32Array(N.n).fill(-1), h = [];
-  const L = N.el[s.e];
-  // leave the snapped point toward b (always allowed) and toward a (if two-way)
-  const toB = L * (1 - s.f), toA = L * s.f;
-  dist[N.eb[s.e]] = toB; heapPush(h, toB, N.eb[s.e]);
-  if (!N.ef[s.e] && toA < dist[N.ea[s.e]]) { dist[N.ea[s.e]] = toA; heapPush(h, toA, N.ea[s.e]); }
+  const N = NET, S = netSnaps(origin); if (!S.length) return null;
+  const dist = new Float64Array(N.n).fill(Infinity), prev = new Int32Array(N.n).fill(-1), seed = new Int32Array(N.n).fill(-1), h = [];
+  const start = (v, c, k) => { if (c < dist[v]) { dist[v] = c; prev[v] = -1; seed[v] = k; heapPush(h, c, v); } };
+  S.forEach((s, k) => {
+    const L = N.el[s.e], acc = s.d * ACCESS;
+    start(N.eb[s.e], acc + L * (1 - s.f), k);              // toward b is always allowed
+    if (!N.ef[s.e]) start(N.ea[s.e], acc + L * s.f, k);    // toward a only if two-way
+  });
   while (h.length) {
     const [c, u] = heapPop(h); if (c > dist[u]) continue;
     for (let k = N.deg[u]; k < N.deg[u + 1]; k++) {
       const v = N.adjTo[k], e = N.adjE[k], nc = c + N.el[e];
-      if (nc < dist[v]) { dist[v] = nc; prev[v] = e; heapPush(h, nc, v); }
+      if (nc < dist[v]) { dist[v] = nc; prev[v] = e; seed[v] = -1; heapPush(h, nc, v); }
     }
   }
-  const tree = { s, dist, prev };
+  const tree = { S, dist, prev, seed };
   routeCache.set(key, tree); return tree;
 }
 // road distance (km), drive time (min) and path from origin to dest
@@ -1660,17 +1670,23 @@ function roadRoute(origin, dest) {
   const out = roadRoute_(origin, dest); rrMemo.set(mk, out); return out;
 }
 function roadRoute_(origin, dest) {
-  const T = netTree(origin), d = netSnap(dest); if (!T || !d) return null;
-  const N = NET, L = N.el[d.e];
-  let best = Infinity, via = -1;
-  const fromA = T.dist[N.ea[d.e]] + L * d.f; if (fromA < best) { best = fromA; via = N.ea[d.e]; }
-  if (!N.ef[d.e]) { const fromB = T.dist[N.eb[d.e]] + L * (1 - d.f); if (fromB < best) { best = fromB; via = N.eb[d.e]; } }
-  if (T.s.e === d.e && (d.f >= T.s.f || !N.ef[d.e])) { const same = Math.abs(d.f - T.s.f) * L; if (same < best) { best = same; via = -2; } }
+  const T = netTree(origin), D = netSnaps(dest); if (!T || !D.length) return null;
+  const N = NET;
+  let best = Infinity, via = -1, d = null, same = null;
+  for (const c of D) {
+    const L = N.el[c.e], acc = c.d * ACCESS;
+    const fromA = T.dist[N.ea[c.e]] + L * c.f + acc; if (fromA < best) { best = fromA; via = N.ea[c.e]; d = c; same = null; }
+    if (!N.ef[c.e]) { const fromB = T.dist[N.eb[c.e]] + L * (1 - c.f) + acc; if (fromB < best) { best = fromB; via = N.eb[c.e]; d = c; same = null; } }
+    for (const s of T.S) if (s.e === c.e && (c.f >= s.f || !N.ef[c.e])) {
+      const v = Math.abs(c.f - s.f) * L + acc + s.d * ACCESS; if (v < best) { best = v; via = -2; d = c; same = s; }
+    }
+  }
   if (!isFinite(best)) return null;
   // rebuild the path and its drive time
-  const legs = []; let mins = 0;
+  const legs = []; let mins = 0, s = same;
   const addTime = (e, metres) => { mins += metres / 1000 / (SPEED[N.hw[N.eh[e]]] || 15) * 60; };
-  if (via === -2) addTime(d.e, best);
+  const L = N.el[d.e];
+  if (via === -2) addTime(d.e, Math.abs(d.f - s.f) * L);
   if (via >= 0) {
     addTime(d.e, via === N.ea[d.e] ? L * d.f : L * (1 - d.f));
     let u = via, guard = 0;
@@ -1678,14 +1694,14 @@ function roadRoute_(origin, dest) {
       const e = T.prev[u], from = N.eb[e] === u ? N.ea[e] : N.eb[e];
       legs.push(N.geom(e, N.eb[e] === u)); addTime(e, N.el[e]); u = from;
     }
-    addTime(T.s.e, u === N.eb[T.s.e] ? N.el[T.s.e] * (1 - T.s.f) : N.el[T.s.e] * T.s.f);
+    s = T.S[T.seed[u]];
+    addTime(s.e, u === N.eb[s.e] ? N.el[s.e] * (1 - s.f) : N.el[s.e] * s.f);
   }
-  const path = [[origin.lat, origin.lng], [T.s.q.lat, T.s.q.lng]];
+  const path = [[origin.lat, origin.lng], [s.q.lat, s.q.lng]];
   for (const g of legs.reverse()) path.push(...g);
   path.push([d.q.lat, d.q.lng], [dest.lat, dest.lng]);
-  const access = (T.s.d + d.d) * 1.3; // short walk/drive from the door to the mapped road
-  const kmTotal = (best + access) / 1000;
-  return { km: kmTotal, min: Math.max(1, Math.round(mins + access / 1000 / 12 * 60)), path };
+  const access = (s.d + d.d) * ACCESS; // short walk/drive from the door to the mapped road (already in best)
+  return { km: best / 1000, min: Math.max(1, Math.round(mins + access / 1000 / 12 * 60)), path };
 }
 function roadKm(a, b) { const r = roadRoute(a, b); return r ? r.km : km(a, b); }
 function distText(a, b, withTime = true) {

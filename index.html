@@ -824,7 +824,15 @@ p.q { font-family: var(--font-display); font-size: 22px; font-weight: 800; margi
 .verdict { font-weight: 600; }
 .verdict.good { color: var(--ok); } .verdict.near { color: var(--ganga); } .verdict.far { color: var(--danger); }
 #map.quiz .place-pin, #map.quiz .lm-pin, #map.quiz .road-badge, #map.quiz .legend { display: none; }
-#map.sat .leaflet-tile-pane { filter: none; }
+#map.sat .leaflet-tile-pane, #map.goog .leaflet-tile-pane { filter: none; }
+.gsv { width: 100%; height: 300px; border-radius: 8px; overflow: hidden; background: var(--rule); }
+.gsv-slot:empty { display: none; }
+.gbox { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.gbox .gnum { font-weight: 700; }
+.gby { font-size: 11px; color: var(--muted); }
+.gsteps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.gsteps code { font-size: 12px; }
+.q-res li.ghead { font-size: 11px; color: var(--muted); padding: 6px 10px 2px; cursor: default; }
 #map.no-roads .legend { display: none; }
 .sketch { position: fixed; inset: 0; z-index: 2000; background: color-mix(in srgb, var(--paper) 94%, transparent); display: flex; flex-direction: column; gap: 10px;
   padding-block: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -972,6 +980,7 @@ body.fullmap #map { height: 100%; }
     <button class="btn" id="btn-quiz" type="button">Test my memory</button>
     <button class="btn" id="btn-sketch" type="button">Sketch</button>
     <button class="btn" id="btn-remember" type="button" aria-expanded="false">How to remember Patna</button>
+    <button class="btn" id="btn-google" type="button">Google Maps ⚙</button>
   </div>
   <div class="layerbar">
     <button type="button" class="lmenu-btn" id="lmenu-btn" aria-label="All map layers" aria-expanded="false" aria-controls="lmenu">☰</button>
@@ -1047,7 +1056,7 @@ const LocalTiles = L.GridLayer.extend({
 const base = new LocalTiles({ minNativeZoom: 11, maxNativeZoom: 15, bounds: BOUNDS, keepBuffer: 4 });
 const detail = new LocalTiles({ minZoom: 16, minNativeZoom: 16, maxNativeZoom: 16, bounds: CORE });
 map.attributionControl.setPrefix(false).addAttribution('Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>');
-fetch("tiles.json").then((r) => r.json()).then((t) => { TILES = t; base.addTo(map); detail.addTo(map); }).catch(() => {
+fetch("tiles.json").then((r) => r.json()).then((t) => { TILES = t; if (BASE === "map") { base.addTo(map); detail.addTo(map); } }).catch(() => {
   map.attributionControl.addAttribution("Map tiles did not load; pins still work");
 });
 
@@ -1221,11 +1230,58 @@ let SAT = null, satOn = false;
 const satBase = new LocalTiles({ minNativeZoom: 11, maxNativeZoom: 15, bounds: BOUNDS, keepBuffer: 4, src: () => SAT });
 const satDetail = new LocalTiles({ minZoom: 16, minNativeZoom: 16, maxNativeZoom: 16, bounds: CORE, src: () => SAT });
 const ESRI = "Imagery © Esri, Maxar, Earthstar Geographics";
+// ---------- Google Maps (public site only; switched on by saving an API key in "Google Maps ⚙") ----------
+// The key stays in this browser's localStorage. Google's terms: no caching of Google content, and
+// Google places/routes are only drawn on the map while a Google base layer is showing.
+const GKEY_K = "patna-places:gkey", BASE_K = "patna-places:base";
+const G = { key: "", state: "off", err: "", p: null, road: null, hyb: null };
+try { G.key = (localStorage.getItem(GKEY_K) || "").trim(); } catch {}
+let BASE = "map", trafficOn = false;
+const isGoogle = () => BASE === "g" || BASE === "gs";
+const gOn = () => !!G.key && G.state !== "failed";
+const MUTANT_JS = "https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.15.0/dist/Leaflet.GoogleMutant.js";
+function gFail(msg) {
+  G.state = "failed"; G.err = msg;
+  if (isGoogle()) setBase("map");
+  renderViewbar(); flash(msg);
+}
+function gReady() {
+  if (!G.key) return Promise.resolve(false);
+  if (G.state === "failed") return Promise.resolve(false);
+  if (G.p) return G.p;
+  G.state = "loading";
+  G.p = new Promise((res) => {
+    window.gm_authFailure = () => { res(false); gFail("Google did not accept the API key. Check that it is restricted to rememberplaces.duckdns.org and that the Maps JavaScript API is enabled, then save it again under Google Maps ⚙."); };
+    window.__gmInit = async () => {
+      try {
+        await google.maps.importLibrary("maps");
+        await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = MUTANT_JS; s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+        G.road = L.gridLayer.googleMutant({ type: "roadmap", maxZoom: 18 });
+        G.hyb = L.gridLayer.googleMutant({ type: "hybrid", maxZoom: 18 });
+        G.state = "ready"; res(true);
+      } catch { res(false); gFail("Google Maps could not start. Reload the page to try again."); }
+    };
+    const s = document.createElement("script"); s.async = true;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(G.key)}&v=weekly&loading=async&language=en&region=IN&callback=__gmInit`;
+    s.onerror = () => { res(false); gFail("Google Maps could not load. Check your connection and reload."); };
+    document.head.appendChild(s);
+  });
+  return G.p;
+}
+function viewbarHTML() {
+  const g = gOn() ? `<button type="button" data-v="g">Google</button><button type="button" data-v="gs">Google sat</button>` : "";
+  const traffic = isGoogle() ? `<button type="button" data-v="traffic" aria-pressed="${trafficOn}">Traffic</button>`
+    : `<a id="lnk-traffic" href="https://www.google.com/maps/@25.603,85.122,13z/data=!5m1!1e1" target="_blank" rel="noopener">Traffic ↗</a>`;
+  const full = document.body.classList.contains("fullmap");
+  return `<button type="button" data-v="map">Map</button><button type="button" data-v="sat">Satellite</button>${g}<button type="button" data-v="sv">Street View</button>${traffic}<button type="button" id="btn-full" title="Full screen map" aria-pressed="${full}" class="${full ? "on" : ""}">${full ? "✕ Exit full screen" : "⛶ Full screen"}</button>`;
+}
+let viewbarEl = null;
+function renderViewbar() { if (!viewbarEl) return; viewbarEl.innerHTML = viewbarHTML(); if (typeof syncTraffic === "function") syncTraffic(); try { setView(view.mode); } catch { setView("list"); } }
 const ViewBar = L.Control.extend({
   options: { position: "topright" },
   onAdd() {
-    const el = L.DomUtil.create("div", "viewbar");
-    el.innerHTML = `<button type="button" data-v="map" class="on">Map</button><button type="button" data-v="sat">Satellite</button><button type="button" data-v="sv">Street View</button><a id="lnk-traffic" href="https://www.google.com/maps/@25.603,85.122,13z/data=!5m1!1e1" target="_blank" rel="noopener">Traffic ↗</a><button type="button" id="btn-full" title="Full screen map" aria-pressed="false">⛶ Full screen</button>`;
+    const el = viewbarEl = L.DomUtil.create("div", "viewbar");
+    el.innerHTML = viewbarHTML();
     L.DomEvent.disableClickPropagation(el);
     return el;
   },
@@ -1244,24 +1300,45 @@ const Legend = L.Control.extend({
 new Legend().addTo(map);
 try { applyShow(); } catch {}
 function setView(v) {
-  const cur = v === "sv" ? "sv" : satOn ? "sat" : "map";
-  document.querySelectorAll(".viewbar [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === cur));
+  document.querySelectorAll(".viewbar [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === "sv" ? v === "sv" : b.dataset.v === "traffic" ? trafficOn : b.dataset.v === BASE && v !== "sv"));
 }
-async function showSatellite(on) {
-  satOn = on; $("#map").classList.toggle("sat", on);
-  if (on) {
-    if (!SAT) { try { SAT = await (await fetch("satellite.json")).json(); } catch { SAT = null; flash("Satellite images did not load. Check your connection and try again."); satOn = false; $("#map").classList.remove("sat"); setView(view.mode); return; } }
-    map.removeLayer(base); map.removeLayer(detail); satBase.addTo(map); satDetail.addTo(map); map.attributionControl.addAttribution(ESRI);
-  } else {
-    map.removeLayer(satBase); map.removeLayer(satDetail); base.addTo(map); detail.addTo(map); map.attributionControl.removeAttribution(ESRI);
+// base layer: map (our OSM tiles) | sat (Esri) | g (Google roadmap) | gs (Google hybrid)
+async function setBase(mode) {
+  if (mode === "g" || mode === "gs") {
+    if (!(await gReady())) { if (G.key) flash(G.err || "Google Maps is not available right now."); return; }
   }
-  setView(view.mode);
+  if (mode === "sat" && !SAT) {
+    try { SAT = await (await fetch("satellite.json")).json(); }
+    catch { SAT = null; flash("Satellite images did not load. Check your connection and try again."); return; }
+  }
+  for (const l of [base, detail, satBase, satDetail, G.road, G.hyb]) if (l && map.hasLayer(l)) map.removeLayer(l);
+  map.attributionControl.removeAttribution(ESRI);
+  if (mode === "map") { if (Object.keys(TILES).length) { base.addTo(map); detail.addTo(map); } }
+  else if (mode === "sat") { satBase.addTo(map); satDetail.addTo(map); map.attributionControl.addAttribution(ESRI); }
+  else if (mode === "g") G.road.addTo(map);
+  else if (mode === "gs") G.hyb.addTo(map);
+  satOn = mode === "sat";
+  BASE = mode; try { localStorage.setItem(BASE_K, mode); } catch {}
+  $("#map").classList.toggle("sat", mode === "sat" || mode === "gs");
+  $("#map").classList.toggle("goog", isGoogle());
+  if (!isGoogle()) { trafficOn = false; if (view.groute) view.groute = false; }
+  applyTraffic(); renderViewbar(); render();
+}
+let trafficLayerOn = null; // the Google layer that currently carries the traffic overlay
+function applyTraffic() {
+  const want = trafficOn && isGoogle() ? (BASE === "g" ? G.road : G.hyb) : null;
+  if (trafficLayerOn === want) return;
+  if (trafficLayerOn) trafficLayerOn.removeGoogleLayer("TrafficLayer");
+  if (want) want.addGoogleLayer("TrafficLayer");
+  trafficLayerOn = want;
 }
 document.addEventListener("click", (e) => {
   const b = e.target.closest?.(".viewbar [data-v]"); if (!b) return;
-  if (b.dataset.v === "map") { if (view.mode === "sv") go({ mode: "list" }); showSatellite(false); }
-  else if (b.dataset.v === "sat") { if (view.mode === "sv") go({ mode: "list" }); showSatellite(true); }
-  else if (b.dataset.v === "sv") go(view.mode === "sv" ? { mode: "list" } : { mode: "sv" });
+  const v = b.dataset.v;
+  if (v === "sv") { go(view.mode === "sv" ? { mode: "list" } : { mode: "sv" }); return; }
+  if (v === "traffic") { trafficOn = !trafficOn; applyTraffic(); renderViewbar(); return; }
+  if (view.mode === "sv") go({ mode: "list" });
+  setBase(v);
 });
 function setFull(on) {
   document.body.classList.toggle("fullmap", on);
@@ -1320,15 +1397,23 @@ function drawLines() {
     return;
   }
   if (view.mode === "sv" && view.at) { L.circleMarker([view.at.lat, view.at.lng], { radius: 8, color: cssVar("--ganga"), weight: 3, fillOpacity: 0.3, interactive: false }).addTo(lineLayer); return; }
+  if (view.mode === "gplace") {
+    const g = view.g, a = routeFrom(null);
+    gDrawRoute(a, g);
+    if (isGoogle()) L.circleMarker([g.lat, g.lng], { radius: 9, color: "#1a73e8", weight: 3, fillColor: "#fff", fillOpacity: 1, interactive: false }).addTo(lineLayer);
+    return;
+  }
   if (view.mode === "lm") {
     const l = LANDMARKS[view.i], a = routeFrom(null);
     if (a) { if (NET) drawRoute(a, l); else L.polyline([[a.lat, a.lng], [l.lat, l.lng]], { color: cssVar("--home"), weight: 2, dashArray: "6 6", interactive: false }).addTo(lineLayer); }
+    gDrawRoute(a, l);
     return;
   }
   if (view.mode !== "detail") return;
   const p = places.find((x) => x.id === view.id); if (!p) return;
   const a = routeFrom(p.id);
   if (a) { if (NET) drawRoute(a, p); else L.polyline([[a.lat, a.lng], [p.lat, p.lng]], { color: cssVar("--home"), weight: 2, dashArray: "6 6", interactive: false }).addTo(lineLayer); }
+  gDrawRoute(a, p);
 }
 
 // ---------- data ----------
@@ -1358,6 +1443,136 @@ function flash(m) { flashMsg = m; render(); setTimeout(() => { flashMsg = ""; re
 })();
 let fitted = false;
 
+// ---------- Google: Street View in the panel, routes with live traffic, place search ----------
+let svMsg = "", svPano = null, svAt = "";
+const svDiv = document.createElement("div"); svDiv.className = "gsv";
+async function gShowPano(at) {
+  const key = at.lat.toFixed(6) + "," + at.lng.toFixed(6);
+  if (svAt === key) return; svAt = key;
+  if (!(await gReady())) return;
+  try {
+    const { StreetViewPanorama, StreetViewService, StreetViewSource, StreetViewPreference } = await google.maps.importLibrary("streetView");
+    if (!svPano) svPano = new StreetViewPanorama(svDiv, { addressControl: false, motionTracking: false, fullscreenControl: true, zoomControl: true, visible: false });
+    const { data } = await new StreetViewService().getPanorama({ location: at, radius: 80, preference: StreetViewPreference.NEAREST, sources: [StreetViewSource.OUTDOOR] });
+    if (svAt !== key) return;
+    svPano.setPano(data.location.pano); svPano.setPov({ heading: 0, pitch: 0 }); svPano.setVisible(true);
+    svMsg = data.location.description ? `Nearest imagery: ${data.location.description}. Drag to look around.` : "Drag to look around. Tap another spot on the map to move.";
+  } catch {
+    if (svAt !== key) return;
+    svPano?.setVisible(false); svMsg = "Google has no Street View photos within 80 m of this spot. Try a main road.";
+  }
+  const m = $("#gsv-msg"); if (m) m.textContent = svMsg;
+}
+// Google's route with traffic now. Results are kept for 10 minutes only (no long-term caching).
+const gRoutes = new Map();
+const gKey = (a, b) => `${(+a.lat).toFixed(5)},${(+a.lng).toFixed(5)}>${(+b.lat).toFixed(5)},${(+b.lng).toFixed(5)}`;
+function gRoute(a, b) {
+  const k = gKey(a, b), hit = gRoutes.get(k);
+  if (hit && Date.now() - hit.t < 600000) return hit;
+  const rec = { t: Date.now(), state: "loading" }; gRoutes.set(k, rec);
+  (async () => {
+    try {
+      if (!(await gReady())) { rec.state = "off"; return; }
+      const { Route } = await google.maps.importLibrary("routes");
+      const { routes } = await Route.computeRoutes({ origin: { lat: +a.lat, lng: +a.lng }, destination: { lat: +b.lat, lng: +b.lng }, travelMode: "DRIVING", routingPreference: "TRAFFIC_AWARE", fields: ["distanceMeters", "durationMillis", "path"] });
+      const r = routes?.[0];
+      if (!r) { rec.state = "none"; }
+      else {
+        rec.state = "ok"; rec.km = r.distanceMeters / 1000; rec.min = Math.max(1, Math.round(r.durationMillis / 60000));
+        rec.path = (r.path || []).map((p) => [typeof p.lat === "function" ? p.lat() : p.lat, typeof p.lng === "function" ? p.lng() : p.lng]);
+      }
+    } catch (e) {
+      rec.state = "err"; rec.msg = /not (been )?(used|enabled)|PERMISSION|403|API_KEY/i.test(String(e?.message || e)) ? "Turn on the Routes API for your key in Google Cloud." : "Google could not find a route just now.";
+    }
+    rec.t = Date.now(); gFill();
+    if (view.groute) drawLines();
+  })();
+  return rec;
+}
+function gRouteText(rec) {
+  if (!rec || rec.state === "loading") return "Asking Google…";
+  if (rec.state === "ok") return `<span class="gnum">${fmtKm(rec.km)} · about ${rec.min} min</span> with traffic now`;
+  if (rec.state === "none") return "Google found no driving route.";
+  if (rec.state === "off") return "Google Maps is not available right now.";
+  return esc(rec.msg || "Google could not answer.");
+}
+// the "Google Maps" box on a place or landmark card
+function gRouteBox(a, dest) {
+  if (!gOn() || !a || !dest) return "";
+  const rec = gRoute(a, dest), k = gKey(a, dest);
+  const who = Object.entries({ home: "home", office: "office", family: "in-laws" }).find(([c]) => anchor(c) === a)?.[1] || "your place";
+  return `<div class="gbox"><p class="eyebrow" style="margin:0">Google Maps · from ${who}</p><span data-gr="${esc(k)}">${gRouteText(rec)}</span>
+    <div class="row"><button class="btn${view.groute ? " on" : ""}" type="button" data-act="groute">${view.groute ? "Hide Google's route" : "Show Google's route"}</button>
+    <a class="ext" href="https://www.google.com/maps/dir/?api=1&origin=${a.lat},${a.lng}&destination=${dest.lat},${dest.lng}&travelmode=driving" target="_blank" rel="noopener">Directions in Google Maps ↗</a></div>
+    ${view.groute ? `<span class="gby">Blue line: Google's route. Teal line: our own OpenStreetMap estimate.</span>` : ""}</div>`;
+}
+function gFill() {
+  document.querySelectorAll("[data-gr]").forEach((el) => { const rec = gRoutes.get(el.dataset.gr); if (rec) el.innerHTML = gRouteText(rec); });
+}
+function gDrawRoute(a, dest) {
+  if (!view.groute || !isGoogle() || !a || !dest) return;
+  const rec = gRoutes.get(gKey(a, dest)); if (!rec?.path?.length) return;
+  L.polyline(rec.path, { color: "#ffffff", weight: 8, opacity: 0.9, interactive: false }).addTo(lineLayer);
+  L.polyline(rec.path, { color: "#1a73e8", weight: 5, opacity: 0.95, interactive: false }).addTo(lineLayer);
+}
+// Google place search (Places API (New)), shown under our own results
+let gToken = null;
+async function gSuggest(input) {
+  if (!gOn() || input.trim().length < 3 || !(await gReady())) return [];
+  const { AutocompleteSuggestion, AutocompleteSessionToken } = await google.maps.importLibrary("places");
+  gToken = gToken || new AutocompleteSessionToken();
+  const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+    input, sessionToken: gToken, region: "in", language: "en",
+    locationRestriction: { south: BOUNDS.getSouth(), west: BOUNDS.getWest(), north: BOUNDS.getNorth(), east: BOUNDS.getEast() },
+  });
+  return (suggestions || []).filter((s) => s.placePrediction).slice(0, 5).map((s) => {
+    const pp = s.placePrediction;
+    return { t: "Google", name: pp.mainText?.toString() || pp.text.toString(), sub: pp.secondaryText?.toString() || "", dot: `class="dot" style="--c:#1a73e8"`, go: () => gPick(pp) };
+  });
+}
+async function gPick(pp) {
+  try {
+    const place = pp.toPlace(); gToken = null;
+    await place.fetchFields({ fields: ["location", "formattedAddress"] });
+    const g = { name: pp.mainText?.toString() || pp.text.toString(), addr: place.formattedAddress || "", lat: place.location.lat(), lng: place.location.lng() };
+    if (!isGoogle()) await setBase("g");
+    go({ mode: "gplace", g }); map.flyTo([g.lat, g.lng], Math.max(map.getZoom(), 16));
+  } catch (e) {
+    flash(/not (been )?(used|enabled)|PERMISSION|403/i.test(String(e?.message || e)) ? "Turn on Places API (New) for your key in Google Cloud." : "Google could not open that place. Try again.");
+  }
+}
+function gplaceView() {
+  const g = view.g, a = routeFrom(null);
+  return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>
+  <div class="detail"><span class="chip" style="--c:#1a73e8">Google place</span><h2>${esc(g.name)}</h2>
+  ${g.addr ? `<p class="note" style="color:var(--muted)">${esc(g.addr)}</p>` : ""}
+  ${fromRow(null)}${gRouteBox(a, g)}
+  <a class="ext" href="https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lng}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+  <p class="gby">Search results by Google. They show on the map only while a Google base layer is on.</p></div>`;
+}
+function gSettingsView() {
+  const status = !G.key ? "Not set up yet. The map uses OpenStreetMap only."
+    : G.state === "failed" ? `Key saved, but it isn't working: ${esc(G.err)}`
+    : G.state === "ready" ? "On. Google layers, traffic, Street View, routes and search are available."
+    : "Key saved. Google loads when you pick a Google layer, Street View or a route.";
+  return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>
+  <div class="detail"><p class="eyebrow">Google Maps</p><h2>Google layers on this map</h2>
+  <p class="notice">${status}</p>
+  <form class="edit" id="f-gkey">
+    <label for="gkey-in">Your Google Maps API key<input id="gkey-in" type="password" autocomplete="off" spellcheck="false" placeholder="${G.key ? "A key is saved. Paste a new one to replace it." : "Paste the key here"}"></label>
+    <div class="row"><button class="btn primary" type="submit">Save key</button>${G.key ? `<button class="btn danger" type="button" data-act="gkey-del">Remove key</button>` : ""}</div>
+  </form>
+  <p class="sub-note">The key is kept only in this browser, on this device. Each phone or computer you use needs it saved once. The page reloads after you save.</p>
+  <p class="eyebrow grp">How to get a key (one time, about 15 minutes)</p>
+  <ol class="gsteps">
+    <li>Open <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a>, create a project and add a billing account. Google asks for a card, but this map's use stays inside the free monthly allowance.</li>
+    <li>In <em>APIs &amp; Services → Library</em>, enable <strong>Maps JavaScript API</strong>, <strong>Routes API</strong> and <strong>Places API (New)</strong>.</li>
+    <li>In <em>Credentials</em>, create an API key. Under <em>Application restrictions</em> choose <em>Websites</em> and add <code>https://rememberplaces.duckdns.org/*</code>. Under <em>API restrictions</em> allow only the three APIs above.</li>
+    <li>In <em>Quotas</em>, set daily caps: Maps JavaScript map loads 300, Routes compute-routes 150, Places autocomplete 300, Place details 100, Street View 150. Add a budget alert of ₹100 in <em>Billing → Budgets</em>.</li>
+    <li>Copy the key and paste it in the box above.</li>
+  </ol></div>`;
+}
+
 // ---------- views ----------
 function go(v) { view = v; render(); }
 function render() {
@@ -1370,9 +1585,11 @@ function render() {
   $("#btn-add").disabled = dbState !== "ready"; $("#btn-quiz").disabled = false;
   const panel = $("#panel");
   const f = flashMsg ? `<p class="notice" role="status">${esc(flashMsg)}</p>` : "";
-  panel.innerHTML = f + ({ list: listView, detail: detailView, edit: editView, pick: pickView, quiz: quizView, lm: lmView, road: roadView, roadedit: roadEditView, sv: svView, sketch: sketchView, remember: rememberView }[view.mode] || listView)();
+  panel.innerHTML = f + ({ list: listView, detail: detailView, edit: editView, pick: pickView, quiz: quizView, lm: lmView, road: roadView, roadedit: roadEditView, sv: svView, sketch: sketchView, remember: rememberView, gplace: gplaceView, gsettings: gSettingsView }[view.mode] || listView)();
   setView(view.mode); $("#map").classList.toggle("picking", view.mode === "pick" || view.mode === "sv");
+  $("#btn-google").classList.toggle("on", view.mode === "gsettings");
   bind(panel);
+  const slot = $("#gsv-slot", panel); if (slot && view.at) { slot.appendChild(svDiv); gShowPano(view.at); }
 }
 
 function listView() {
@@ -1451,7 +1668,7 @@ function lmView() {
   return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>
   <div class="detail"><span class="chip" style="--c:${c.color}">${esc(c.label)}</span><h2>${esc(l.name)}</h2><p class="hi-big">${esc(l.hi)}</p>
   ${l.note ? `<p class="note">${esc(l.note)}</p>` : ""}
-  ${fromRow(null)}<dl class="facts">${refFacts(l)}<dt>Position</dt><dd class="mono">${l.lat.toFixed(4)}° N, ${l.lng.toFixed(4)}° E</dd></dl>
+  ${fromRow(null)}${gRouteBox(routeFrom(null), l)}<dl class="facts">${refFacts(l)}<dt>Position</dt><dd class="mono">${l.lat.toFixed(4)}° N, ${l.lng.toFixed(4)}° E</dd></dl>
   <a class="ext" href="https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
   <a class="ext" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${l.lat},${l.lng}" target="_blank" rel="noopener">See it in Google Street View ↗</a>
   ${adjustBlock("l:" + view.i)}</div>`;
@@ -1507,10 +1724,11 @@ function roadEditView() {
   </form>`;
 }
 function svView() {
-  if (!view.at) return `<div><p class="eyebrow">Street View</p><h2>Tap a street on the map</h2></div><p class="notice">Google Street View opens in a new tab at the spot you tap.</p><div class="row"><button class="btn" type="button" data-act="back">Done</button></div>`;
+  if (!view.at) return `<div><p class="eyebrow">Street View</p><h2>Tap a street on the map</h2></div><p class="notice">${gOn() ? "Street View opens here in the panel at the spot you tap." : "Google Street View opens in a new tab at the spot you tap."}</p><div class="row"><button class="btn" type="button" data-act="back">Done</button></div>`;
   const a = view.at;
   return `<div><p class="eyebrow">Street View</p><h2>Spot selected</h2></div><p class="mono" style="margin:0;color:var(--muted)">${a.lat.toFixed(5)}° N, ${a.lng.toFixed(5)}° E</p>
-  <a class="btn primary" style="width:fit-content" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${a.lat},${a.lng}" target="_blank" rel="noopener">Open Street View here ↗</a>
+  ${gOn() ? `<div class="gsv-slot" id="gsv-slot"></div><p class="sub-note" id="gsv-msg">${esc(svMsg)}</p>` : ""}
+  <a class="${gOn() ? "ext" : "btn primary"}" style="width:fit-content" href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${a.lat},${a.lng}" target="_blank" rel="noopener">${gOn() ? "Open in a new tab ↗" : "Open Street View here ↗"}</a>
   <a class="ext" href="https://www.google.com/maps/search/?api=1&query=${a.lat},${a.lng}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
   <p class="notice">Tap another spot to move. Street View is Google's, so some lanes may have no imagery.</p><div class="row"><button class="btn" type="button" data-act="back">Done</button></div>`;
 }
@@ -1527,7 +1745,7 @@ function detailView() {
     ${p.address ? `<p class="note" style="color:var(--muted)">${esc(p.address)}</p>` : ""}
     ${p.approx ? `<p class="notice"><strong>Approximate location.</strong> Drag the pin to the exact spot and it will be saved.</p>` : ""}
     ${p.note ? `<p class="note">${esc(p.note)}</p>` : ""}
-    ${fromRow(p.id)}<dl class="facts">${dist}
+    ${fromRow(p.id)}${gRouteBox(routeFrom(p.id), p)}<dl class="facts">${dist}
       <dt>First visit</dt><dd>${fmtDate(p.firstVisit)}</dd>
       <dt>Visits</dt><dd>${Number(p.visits || 0)}${p.lastVisit ? ` · last ${fmtDate(p.lastVisit)}` : ""}</dd>
       <dt>Position</dt><dd class="mono">${(+p.lat).toFixed(5)}° N, ${(+p.lng).toFixed(5)}° E</dd>
@@ -1930,14 +2148,31 @@ function searchIndex() {
     return -1;
   };
   const close = () => { list.hidden = true; input.setAttribute("aria-expanded", "false"); };
+  let local = [], gHits = [], gTimer = 0, gSeq = 0, gWait = false;
+  const li = (h, i) => `<li role="option" id="q-${i}" data-i="${i}" aria-selected="${i === sel}"><span class="dot" ${h.dot}></span><span class="nm">${esc(h.name)}${h.sub ? `<small>${esc(h.sub)}</small>` : ""}</span><span class="ty">${esc(h.t)}</span></li>`;
+  const paint = () => {
+    hits = [...local, ...gHits];
+    let html = local.map(li).join("");
+    if (gHits.length) html += `<li class="ghead">From Google</li>` + gHits.map((h, j) => li(h, local.length + j)).join("");
+    else if (gWait) html += `<li class="ghead">Searching Google…</li>`;
+    if (!hits.length && !gWait) html = `<li class="none">Nothing matches “${esc(input.value)}”. Try part of the name, such as “Gandhi” or “NH”.</li>`;
+    list.innerHTML = html; list.hidden = false; input.setAttribute("aria-expanded", "true");
+  };
   const show = () => {
     const q = norm(input.value);
     if (!q) { close(); return; }
-    hits = searchIndex().map((it) => [score(it, q), it]).filter(([s]) => s >= 0).sort((a, b) => a[0] - b[0] || a[1].name.length - b[1].name.length).slice(0, 12).map(([, it]) => it);
-    sel = 0;
-    list.innerHTML = hits.length ? hits.map((h, i) => `<li role="option" id="q-${i}" data-i="${i}" aria-selected="${i === sel}"><span class="dot" ${h.dot}></span><span class="nm">${esc(h.name)}${h.sub ? `<small>${esc(h.sub)}</small>` : ""}</span><span class="ty">${esc(h.t)}</span></li>`).join("")
-      : `<li class="none">Nothing matches “${esc(input.value)}”. Try part of the name, such as “Gandhi” or “NH”.</li>`;
-    list.hidden = false; input.setAttribute("aria-expanded", "true");
+    local = searchIndex().map((it) => [score(it, q), it]).filter(([s]) => s >= 0).sort((a, b) => a[0] - b[0] || a[1].name.length - b[1].name.length).slice(0, gOn() ? 8 : 12).map(([, it]) => it);
+    sel = 0; gHits = []; clearTimeout(gTimer);
+    gWait = gOn() && input.value.trim().length >= 3;
+    paint();
+    if (gWait) {
+      const seq = ++gSeq, text = input.value;
+      gTimer = setTimeout(async () => {
+        let r = []; try { r = await gSuggest(text); } catch {}
+        if (seq !== gSeq) return;
+        gWait = false; gHits = r; if (!list.hidden) paint();
+      }, 350);
+    }
   };
   const pick = (i) => { const h = hits[i]; if (!h) return; close(); input.value = h.name; input.blur(); h.go(); };
   const mark = () => list.querySelectorAll("li[data-i]").forEach((li) => { const on = +li.dataset.i === sel; li.setAttribute("aria-selected", String(on)); if (on) li.scrollIntoView({ block: "nearest" }); });
@@ -2024,6 +2259,7 @@ map.on("click", (e) => {
   else if (view.mode === "sv") go({ mode: "sv", at: { lat: e.latlng.lat, lng: e.latlng.lng } });
 });
 
+$("#btn-google").onclick = () => { go(view.mode === "gsettings" ? { mode: "list" } : { mode: "gsettings" }); if (document.body.classList.contains("fullmap")) setFull(false); };
 $("#btn-remember").onclick = () => { go(view.mode === "remember" ? { mode: "list" } : { mode: "remember" }); if (document.body.classList.contains("fullmap")) setFull(false); };
 $("#btn-sketch").onclick = () => go(view.mode === "sketch" ? { mode: "list" } : { mode: "sketch", q: "", title: view.title || "" });
 $("#sk-close").onclick = () => { $("#sketch").hidden = true; };
@@ -2078,7 +2314,21 @@ function bind(panel) {
     else if (a === "road-edit") go({ ...view, mode: "roadedit" });
     else if (a === "road-back") go({ ...view, mode: "road" });
     else if (a === "quiz-end") { lineLayer.clearLayers(); go({ mode: "list" }); }
+    else if (a === "groute") {
+      if (view.groute) { go({ ...view, groute: false }); return; }
+      const v = { ...view, groute: true };
+      if (!isGoogle()) { view = v; await setBase("g"); if (!isGoogle()) view.groute = false; render(); } else go(v);
+    }
+    else if (a === "gkey-del") { try { localStorage.removeItem(GKEY_K); localStorage.removeItem(BASE_K); } catch {} location.reload(); }
   });
+  const gk = $("#f-gkey", panel);
+  if (gk) gk.onsubmit = (e) => {
+    e.preventDefault();
+    const k = $("#gkey-in", panel).value.trim();
+    if (!/^[A-Za-z0-9_\-]{30,60}$/.test(k)) { flash("That doesn't look like a Google API key. It is about 39 letters and numbers and usually starts with AIza."); return; }
+    try { localStorage.setItem(GKEY_K, k); } catch { flash("This browser would not save the key. Turn off private browsing and try again."); return; }
+    location.reload();
+  };
   const pf = $("#f-pos", panel);
   if (pf) pf.onsubmit = async (e) => {
     e.preventDefault();
@@ -2125,6 +2375,8 @@ function bind(panel) {
 }
 
 render();
+// reopen with the base layer used last time
+(() => { let b = "map"; try { b = localStorage.getItem(BASE_K) || "map"; } catch {} if (b === "sat" || ((b === "g" || b === "gs") && G.key)) setBase(b); })();
 })();
 </script>
 

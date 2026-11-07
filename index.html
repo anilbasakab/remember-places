@@ -833,6 +833,38 @@ p.q { font-family: var(--font-display); font-size: 22px; font-weight: 800; margi
 .gsteps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
 .gsteps code { font-size: 12px; }
 .q-res li.ghead { font-size: 11px; color: var(--muted); padding: 6px 10px 2px; cursor: default; }
+/* Patna | Bihar switch */
+.viewbar .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 7px; overflow: hidden; margin-right: 2px; }
+.viewbar .seg button { border-radius: 0; }
+/* Bihar overview labels */
+.bh-dist span { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font: 600 12px/1.15 var(--font-data, system-ui); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); text-align: center; text-shadow: 0 0 3px var(--sheet), 0 0 6px var(--sheet); pointer-events: none; }
+.bh-dist i { display: block; font-style: normal; text-transform: none; letter-spacing: 0; font-size: 11px; }
+.bh-hq span { position: absolute; left: 8px; top: -8px; white-space: nowrap; font: 700 12px system-ui, sans-serif; color: var(--ink); text-shadow: 0 0 3px var(--sheet), 0 0 6px var(--sheet), 0 0 2px var(--sheet); pointer-events: none; }
+#map.bh-z-lo .bh-hq span { display: none; }
+#map.bh-far .lm-pin, #map.bh-far .lm-area, #map.bh-far .road-badge, #map.bh-far .place-pin .t { display: none; }
+#map.bh-z-hi .bh-dist { display: none; }
+#map.sat .bh-dist span, #map.sat .bh-hq span { color: #fff; text-shadow: 0 0 3px #000, 0 0 6px #000; }
+/* route sketch panel */
+.rs-field { display: flex; align-items: center; gap: 10px; border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; }
+.rs-field .nm { flex: 1; display: flex; flex-direction: column; font-weight: 600; min-width: 0; }
+.rs-field .sub { font-weight: 400; font-size: 12px; color: var(--muted); }
+.rs-tag { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: var(--sheet); display: grid; place-items: center; font-weight: 700; flex: none; }
+.rs-in { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
+.rs-in input { border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; background: var(--paper); color: var(--ink); font-size: 15px; }
+.hi { font-weight: 400; color: var(--muted); }
+.rs-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.rs-list li { display: flex; gap: 10px; align-items: flex-start; }
+.rs-list .nm { display: flex; flex-direction: column; font-weight: 600; }
+.rs-list .sub { font-weight: 400; font-size: 12px; color: var(--muted); }
+.rs-num { width: 24px; height: 24px; flex: none; border-radius: 50%; border: 2px solid var(--ink); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+.rs-list .k-turn .rs-num { background: #e07b1a; border-color: #e07b1a; color: #fff; }
+.rs-list .k-border .rs-num { border-color: var(--danger); color: var(--danger); }
+.rs-list .k-hq .rs-num { background: #2a5aa6; border-color: #2a5aa6; color: #fff; border-radius: 4px; }
+.rs-list .k-start .rs-num, .rs-list .k-end .rs-num { background: var(--ink); color: var(--sheet); }
+.rs-list .rs-leg { padding-left: 34px; font-size: 13px; color: var(--muted); }
+.endpin.rs-turn { background: #e07b1a; color: #fff; }
+.endpin.rs-hq { background: #2a5aa6; color: #fff; }
+.endpin.rs-border { background: var(--sheet); color: var(--danger); border-color: var(--danger); }
 #map.no-roads .legend { display: none; }
 .sketch { position: fixed; inset: 0; z-index: 2000; background: color-mix(in srgb, var(--paper) 94%, transparent); display: flex; flex-direction: column; gap: 10px;
   padding-block: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -1041,8 +1073,7 @@ const fmtDate = (s) => { if (!s) return "—"; const d = new Date(s + "T00:00:00
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 // ---------- map ----------
-const map = L.map("map", { minZoom: 11, maxZoom: 18, maxBounds: BOUNDS.pad(0.05), zoomSnap: 0.5 }).setView([25.603, 85.122], 14);
-let TILES = {};
+const map = L.map("map", { minZoom: 11, maxZoom: 18, maxBounds: BOUNDS.pad(0.05), zoomSnap: 0.5 }).setView([25.603, 85.122], 14);let TILES = {};
 const LocalTiles = L.GridLayer.extend({
   createTile(c) {
     const img = document.createElement("img");
@@ -1235,7 +1266,7 @@ const ESRI = "Imagery © Esri, Maxar, Earthstar Geographics";
 const GKEY_K = "patna-places:gkey", BASE_K = "patna-places:base";
 const G = { key: "", state: "off", err: "", p: null, road: null, hyb: null };
 try { G.key = (localStorage.getItem(GKEY_K) || "").trim(); } catch {}
-let BASE = "map", trafficOn = false;
+let BASE = "map", trafficOn = false, REGION = "patna";
 const isGoogle = () => BASE === "g" || BASE === "gs";
 const gOn = () => !!G.key && G.state !== "failed";
 const MUTANT_JS = "https://cdn.jsdelivr.net/npm/leaflet.gridlayer.googlemutant@0.15.0/dist/Leaflet.GoogleMutant.js";
@@ -1272,7 +1303,8 @@ function viewbarHTML() {
   const traffic = isGoogle() ? `<button type="button" data-v="traffic" aria-pressed="${trafficOn}">Traffic</button>`
     : `<a id="lnk-traffic" href="https://www.google.com/maps/@25.603,85.122,13z/data=!5m1!1e1" target="_blank" rel="noopener">Traffic ↗</a>`;
   const full = document.body.classList.contains("fullmap");
-  return `<button type="button" data-v="map">Map</button><button type="button" data-v="sat">Satellite</button>${g}<button type="button" data-v="sv">Street View</button>${traffic}<button type="button" id="btn-full" title="Full screen map" aria-pressed="${full}" class="${full ? "on" : ""}">${full ? "✕ Exit full screen" : "⛶ Full screen"}</button>`;
+  const region = `<span class="seg" role="group" aria-label="Area"><button type="button" data-region="patna" class="${REGION === "patna" ? "on" : ""}" aria-pressed="${REGION === "patna"}">Patna</button><button type="button" data-region="bihar" class="${REGION === "bihar" ? "on" : ""}" aria-pressed="${REGION === "bihar"}">Bihar</button></span>`;
+  return `${region}<button type="button" data-v="map">Map</button><button type="button" data-v="sat">Satellite</button>${g}<button type="button" data-v="sv">Street View</button>${traffic}<button type="button" id="btn-full" title="Full screen map" aria-pressed="${full}" class="${full ? "on" : ""}">${full ? "✕ Exit full screen" : "⛶ Full screen"}</button>`;
 }
 let viewbarEl = null;
 function renderViewbar() { if (!viewbarEl) return; viewbarEl.innerHTML = viewbarHTML(); if (typeof syncTraffic === "function") syncTraffic(); try { setView(view.mode); } catch { setView("list"); } }
@@ -1321,7 +1353,7 @@ async function setBase(mode) {
   $("#map").classList.toggle("sat", mode === "sat" || mode === "gs");
   $("#map").classList.toggle("goog", isGoogle());
   if (!isGoogle()) { trafficOn = false; if (view.groute) view.groute = false; }
-  applyTraffic(); renderViewbar(); render();
+  syncWebTiles(); applyTraffic(); renderViewbar(); render();
 }
 let trafficLayerOn = null; // the Google layer that currently carries the traffic overlay
 function applyTraffic() {
@@ -1332,6 +1364,7 @@ function applyTraffic() {
   trafficLayerOn = want;
 }
 document.addEventListener("click", (e) => {
+  const rb = e.target.closest?.(".viewbar [data-region]"); if (rb) { if (rb.dataset.region !== REGION) setRegion(rb.dataset.region); return; }
   const b = e.target.closest?.(".viewbar [data-v]"); if (!b) return;
   const v = b.dataset.v;
   if (v === "sv") { go(view.mode === "sv" ? { mode: "list" } : { mode: "sv" }); return; }
@@ -1396,6 +1429,8 @@ function drawLines() {
     return;
   }
   if (view.mode === "sv" && view.at) { L.circleMarker([view.at.lat, view.at.lng], { radius: 8, color: cssVar("--ganga"), weight: 3, fillOpacity: 0.3, interactive: false }).addTo(lineLayer); return; }
+  if (view.mode === "rsketch") { rsDrawOnMap(); return; }
+  if (view.mode === "bplace") { L.circleMarker([view.g.lat, view.g.lng], { radius: 9, color: cssVar("--ganga"), weight: 3, fillColor: "#fff", fillOpacity: 1, interactive: false }).addTo(lineLayer); return; }
   if (view.mode === "gplace") {
     const g = view.g, a = routeFrom(null);
     gDrawRoute(a, g);
@@ -1579,12 +1614,12 @@ function render() {
   const el = $("#map"); el.classList.toggle("picking", view.mode === "pick"); el.classList.toggle("quiz", view.mode === "quiz");
   $("#btn-add").classList.toggle("on", view.mode === "pick" || (view.mode === "edit" && !view.id));
   $("#btn-quiz").classList.toggle("on", view.mode === "quiz");
-  $("#btn-sketch").classList.toggle("on", view.mode === "sketch");
+  $("#btn-sketch").classList.toggle("on", view.mode === "sketch" || view.mode === "rsketch");
   $("#btn-remember").classList.toggle("on", view.mode === "remember"); $("#btn-remember").setAttribute("aria-expanded", String(view.mode === "remember"));
   $("#btn-add").disabled = dbState !== "ready"; $("#btn-quiz").disabled = false;
   const panel = $("#panel");
   const f = flashMsg ? `<p class="notice" role="status">${esc(flashMsg)}</p>` : "";
-  panel.innerHTML = f + ({ list: listView, detail: detailView, edit: editView, pick: pickView, quiz: quizView, lm: lmView, road: roadView, roadedit: roadEditView, sv: svView, sketch: sketchView, remember: rememberView, gplace: gplaceView, gsettings: gSettingsView }[view.mode] || listView)();
+  panel.innerHTML = f + ({ list: listView, detail: detailView, edit: editView, pick: pickView, quiz: quizView, lm: lmView, road: roadView, roadedit: roadEditView, sv: svView, sketch: sketchView, remember: rememberView, gplace: gplaceView, gsettings: gSettingsView, rsketch: rsView, bplace: bplaceView }[view.mode] || listView)();
   setView(view.mode); $("#map").classList.toggle("picking", view.mode === "pick" || view.mode === "sv");
   $("#btn-google").classList.toggle("on", view.mode === "gsettings");
   bind(panel);
@@ -1789,6 +1824,13 @@ let NET = null, netState = "loading";
 const routeCache = new Map();
 function netLoad() {
   fetch("roadnet.json").then((r) => r.json()).then((raw) => {
+    NET = parseNet(raw, 0.004);
+    netState = "ready"; routeCache.clear(); rrMemo.clear(); render();
+  }).catch(() => { netState = "failed"; render(); });
+}
+// turn a compact road-network file into arrays for routing (shared by Patna and Bihar networks)
+function parseNet(raw, CELL) {
+  {
     const n = raw.n.length / 2, E = raw.e, m = E.length / 4;
     const lat = new Float64Array(n), lng = new Float64Array(n);
     for (let i = 0; i < n; i++) { lat[i] = raw.n[2 * i] / 1e5; lng[i] = raw.n[2 * i + 1] / 1e5; }
@@ -1812,21 +1854,26 @@ function netLoad() {
       pts.push([lat[eb[i]], lng[eb[i]]]);
       return fwd ? pts : pts.reverse();
     };
-    // grid index of edges for snapping
-    const CELL = 0.004, grid = new Map();
+    // grid index of edges for snapping (each edge listed in every cell its points or segments touch)
+    const grid = new Map();
     for (let i = 0; i < m; i++) {
       const pts = geom(i), seen = new Set();
-      for (const p of pts) { const k = Math.floor(p[0] / CELL) + ":" + Math.floor(p[1] / CELL); if (!seen.has(k)) { seen.add(k); (grid.get(k) || grid.set(k, []).get(k)).push(i); } }
+      for (let j = 0; j < pts.length; j++) {
+        const p = pts[j], q = pts[j + 1] || p, steps = Math.max(1, Math.ceil(Math.max(Math.abs(q[0] - p[0]), Math.abs(q[1] - p[1])) / CELL));
+        for (let s = 0; s < steps; s++) {
+          const la = p[0] + (q[0] - p[0]) * s / steps, lo = p[1] + (q[1] - p[1]) * s / steps;
+          const k = Math.floor(la / CELL) + ":" + Math.floor(lo / CELL); if (!seen.has(k)) { seen.add(k); (grid.get(k) || grid.set(k, []).get(k)).push(i); }
+        }
+      }
     }
-    NET = { n, m, lat, lng, ea, eb, el, ef, ez, eh, deg, adjTo, adjE, geom, grid, CELL, hw: raw.hw };
-    netState = "ready"; routeCache.clear(); rrMemo.clear(); render();
-  }).catch(() => { netState = "failed"; render(); });
+    return { n, m, lat, lng, ea, eb, el, ef, ez, eh, deg, adjTo, adjE, geom, grid, CELL, hw: raw.hw, r: raw.r, labels: raw.labels };
+  }
 }
 // all usable roads near a point: the nearest one plus any within SNAP_SLACK metres of it.
 // Flyovers, bridges and tunnels are skipped (a pin beside them can't join them directly).
 const SNAP_SLACK = 120, SNAP_CAP = 300, ACCESS = 1.3;
-function netSnaps(pt) {
-  const { CELL, grid, geom, ez } = NET, ci = Math.floor(pt.lat / CELL), cj = Math.floor(pt.lng / CELL);
+function netSnaps(pt, N = NET) {
+  const { CELL, grid, geom, ez } = N, ci = Math.floor(pt.lat / CELL), cj = Math.floor(pt.lng / CELL);
   const kx = Math.cos(pt.lat * Math.PI / 180), per = new Map();
   for (let r = 0; r <= 4; r++) {
     if (r > 1 && per.size) break; // rings 0-1 always cover 350 m+ around the point
@@ -1950,6 +1997,7 @@ function sketchView() {
   const chip = (s) => `<button class="schip" type="button" data-unsk="${esc(s.key)}" title="Remove"><span class="dot${s.kind === "road" ? " bar" : ""}" style="--c:${s.kind === "road" ? `var(--${s.cls})` : s.color}"></span>${esc(s.name)} ✕</button>`;
   const hit = (c) => `<li><button type="button" data-addsk="${esc(c.key)}"><span class="dot${c.kind === "road" ? " bar" : ""}" style="--c:${c.kind === "road" ? `var(--${c.cls})` : c.color}"></span><span class="nm">${esc(c.name)}<span class="sub">${c.kind === "road" ? "Road" : c.kind === "place" ? "Your place" : "Landmark"}</span></span></button></li>`;
   return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>
+  <div class="row"><button class="btn" type="button" data-act="sk-route">Route sketch: From → To</button></div>
   <div><p class="eyebrow">Sketch map</p><h2>Pick places and roads</h2></div>
   <p class="sub-note">Choose 2 to 8. The sketch keeps directions, shortens long gaps, spreads out close spots, and writes the road distance on each link.</p>
   <div class="chips">${sketchSel.map(chip).join("") || `<span class="sub-note">Nothing picked yet.</span>`}</div>
@@ -2101,16 +2149,415 @@ async function openSketch() {
   try { await document.fonts.load("700 26px Kalam"); } catch {}
   drawSketch(cv);
 }
+async function openRouteSketch() {
+  if (!rs.S) return;
+  $("#sketch").hidden = false;
+  try { await document.fonts.load("700 26px Kalam"); } catch {}
+  drawRouteSketch($("#sketch-canvas"));
+}
+function bplaceView() {
+  const g = view.g, h = anchor("home");
+  return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button></div>
+  <div class="detail"><span class="chip" style="--c:var(--ganga)">${esc(g.sub)}</span><h2>${esc(g.name)}</h2>${g.hi ? `<p class="hi-big">${esc(g.hi)}</p>` : ""}
+  ${h ? `<dl class="facts"><dt>From home</dt><dd>${fmtKm(km(h, g))} straight line</dd></dl>` : ""}
+  <div class="row">${h ? `<button class="btn primary" type="button" data-act="bp-route-from">Route sketch from home</button>` : ""}<button class="btn" type="button" data-act="bp-route-to">Route sketch from here to…</button></div>
+  <a class="ext" href="https://www.google.com/maps/search/?api=1&query=${g.lat},${g.lng}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+  <p class="gby">Place names from OpenStreetMap and GeoNames (CC BY 4.0). Village positions can be off by a kilometre or so.</p></div>`;
+}
 async function saveSketch() {
   const cv = $("#sketch-canvas"), dl = await window.claude?.use?.("downloads").catch?.(() => null);
   if (!dl) { flash("Saving isn't available in this view. Open the page on claude.ai to save the sketch."); return; }
   cv.toBlob(async (blob) => {
-    const name = (view.title || "patna-sketch").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "patna-sketch";
+    const base = view.mode === "rsketch" && rs.S ? `route ${rs.from.name} to ${rs.to.name}` : view.title || "patna-sketch";
+    const name = base.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "sketch";
     try { await dl.save({ filename: `${name}.png`, data: blob }); }
     catch (e) { if (e?.code !== "declined") flash("The image could not be saved. Try again."); }
   }, "image/png");
 }
 
+
+// ---------- Bihar: overview layers, place index, statewide road network and route sketches ----------
+// Data comes from OpenStreetMap (tools/fetch_bihar.py + tools/build_bihar.py) and loads only when needed.
+const BIHAR_BOUNDS = L.latLngBounds([24.28, 83.32], [27.53, 88.3]);
+let BH = null, BHP = null, BN = null;
+const bhPromises = {};
+const bhGet = (name) => bhPromises[name] || (bhPromises[name] = fetch(`bihar/${name}.json`).then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }).catch((e) => { delete bhPromises[name]; throw e; }));
+const PTYPE = ["City", "Town", "Village", "Locality", "Hamlet"];
+const normName = (t) => String(t || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9ऀ-ॿ]+/g, " ").trim();
+async function bhLayersReady() {
+  if (BH) return BH;
+  const raw = await bhGet("layers");
+  raw.districts.forEach((d) => { const all = d.rings.flat(); d.bb = [Math.min(...all.map((p) => p[0])), Math.min(...all.map((p) => p[1])), Math.max(...all.map((p) => p[0])), Math.max(...all.map((p) => p[1]))]; });
+  BH = raw; return BH;
+}
+async function bhPlacesReady() {
+  if (BHP) return BHP;
+  const raw = await bhGet("places"), CELL = 0.05, grid = new Map();
+  const list = raw.p.map(([name, hi, t, la, lo, d], i) => ({ i, name, hi, t, lat: la / 1e4, lng: lo / 1e4, d, n: normName(name) }));
+  for (const p of list) { const k = Math.floor(p.lat / CELL) + ":" + Math.floor(p.lng / CELL); (grid.get(k) || grid.set(k, []).get(k)).push(p); }
+  BHP = { districts: raw.districts, list, grid, CELL }; return BHP;
+}
+async function bhNetReady() { if (!BN) BN = parseNet(await bhGet("net"), 0.02); return BN; }
+// places near a point (km radius), optionally only some types
+function bhNear(pt, rkm, types) {
+  if (!BHP) return [];
+  const { grid, CELL } = BHP, r = Math.ceil(rkm / 5) + 1, ci = Math.floor(pt.lat / CELL), cj = Math.floor(pt.lng / CELL), out = [];
+  for (let di = -r; di <= r; di++) for (let dj = -r; dj <= r; dj++) for (const p of grid.get((ci + di) + ":" + (cj + dj)) || []) {
+    if (types && !types.includes(p.t)) continue; const d = km(pt, p); if (d <= rkm) out.push([d, p]);
+  }
+  return out.sort((a, b) => a[0] - b[0]);
+}
+function inRings(lat, lng, rings) { let c = false; for (const r of rings) for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [yi, xi] = r[i], [yj, xj] = r[j]; if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) c = !c; } return c; }
+function bhDistrictAt(lat, lng) { if (!BH) return -1; return BH.districts.findIndex((d) => lat >= d.bb[0] && lat <= d.bb[2] && lng >= d.bb[1] && lng <= d.bb[3] && inRings(lat, lng, d.rings)); }
+function bhSearch(q, limit = 8) {
+  if (!BHP) return []; const nq = normName(q); if (nq.length < 2) return [];
+  const hits = [];
+  for (const p of BHP.list) {
+    let s = -1;
+    if (p.n === nq) s = 0; else if (p.n.startsWith(nq)) s = 1; else if (p.hi && p.hi.startsWith(q.trim())) s = 1; else if (nq.length > 2 && p.n.includes(nq)) s = 3;
+    if (s >= 0) hits.push([s + p.t * 0.4, p]);
+  }
+  return hits.sort((a, b) => a[0] - b[0] || a[1].name.length - b[1].name.length).slice(0, limit).map((h) => h[1]);
+}
+// --- statewide route: A* over the Bihar network between two points ---
+function bnRoute(a, b) {
+  const N = BN, S = netSnaps(a, N), D = netSnaps(b, N); if (!S.length || !D.length) return null;
+  const dist = new Float64Array(N.n).fill(Infinity), prev = new Int32Array(N.n).fill(-1), seed = new Int32Array(N.n).fill(-1), h = [];
+  const hx = (v) => km({ lat: N.lat[v], lng: N.lng[v] }, b) * 1000;
+  const start = (v, c, k) => { if (c < dist[v]) { dist[v] = c; prev[v] = -1; seed[v] = k; heapPush(h, c + hx(v), v); } };
+  S.forEach((s, k) => { const L = N.el[s.e], acc = s.d * ACCESS; start(N.eb[s.e], acc + L * (1 - s.f), k); if (!N.ef[s.e]) start(N.ea[s.e], acc + L * s.f, k); });
+  const goal = new Map(), addG = (v, x, k) => (goal.get(v) || goal.set(v, []).get(v)).push([x, k]);
+  D.forEach((c, k) => { const L = N.el[c.e], acc = c.d * ACCESS; addG(N.ea[c.e], L * c.f + acc, k); if (!N.ef[c.e]) addG(N.eb[c.e], L * (1 - c.f) + acc, k); });
+  let best = Infinity, bestNode = -1, bestK = -1, guard = 0;
+  while (h.length && guard++ < 3e6) {
+    const [fc, u] = heapPop(h), c = dist[u];
+    if (fc > c + hx(u) + 1e-6) continue;
+    if (fc >= best) break;
+    const g = goal.get(u); if (g) for (const [x, k] of g) if (c + x < best) { best = c + x; bestNode = u; bestK = k; }
+    for (let k = N.deg[u]; k < N.deg[u + 1]; k++) { const v = N.adjTo[k], e = N.adjE[k], nc = c + N.el[e]; if (nc < dist[v]) { dist[v] = nc; prev[v] = e; seed[v] = -1; heapPush(h, nc + hx(v), v); } }
+  }
+  if (bestNode < 0) return null;
+  const d = D[bestK], edges = []; let u = bestNode;
+  while (prev[u] !== -1) { const e = prev[u], from = N.eb[e] === u ? N.ea[e] : N.eb[e]; edges.push([e, N.eb[e] === u]); u = from; }
+  edges.reverse();
+  const s = S[seed[u]];
+  // ordered segments: [{pts, li, h, m}] (first and last are the partial edges to the snapped points)
+  const segs = [{ pts: [[a.lat, a.lng], [s.q.lat, s.q.lng], [N.lat[u], N.lng[u]]], li: N.r[s.e], h: N.eh[s.e] }];
+  for (const [e, fwd] of edges) segs.push({ pts: N.geom(e, fwd), li: N.r[e], h: N.eh[e] });
+  segs.push({ pts: [[N.lat[bestNode], N.lng[bestNode]], [d.q.lat, d.q.lng], [b.lat, b.lng]], li: N.r[d.e], h: N.eh[d.e] });
+  for (const sg of segs) { sg.m = 0; for (let i = 1; i < sg.pts.length; i++) sg.m += km({ lat: sg.pts[i - 1][0], lng: sg.pts[i - 1][1] }, { lat: sg.pts[i][0], lng: sg.pts[i][1] }) * 1000; }
+  return { km: segs.reduce((t, sg) => t + sg.m, 0) / 1000, segs };
+}
+const bearing = (p, q) => { const r = Math.PI / 180, y = Math.sin((q[1] - p[1]) * r) * Math.cos(q[0] * r), x = Math.cos(p[0] * r) * Math.sin(q[0] * r) - Math.sin(p[0] * r) * Math.cos(q[0] * r) * Math.cos((q[1] - p[1]) * r); return (Math.atan2(y, x) / r + 360) % 360; };
+const roadCls = (label, h) => /^NH-/.test(label) || h <= 1 ? "nh" : /^SH-/.test(label) ? "sh" : /^MDR/.test(label) || h <= 3 ? "mdr" : "other";
+const ROUTE_SPEED = { nh: 50, sh: 40, mdr: 32, other: 25 };
+// turn a route into memorable stops: start, turns, district HQs, district borders, towns, end
+function routeStops(R, from, to) {
+  const labels = BN.labels, pts = [];
+  let acc = 0;
+  for (const sg of R.segs) sg.pts.forEach((p, i) => { if (i || !pts.length) { if (pts.length) acc += km({ lat: pts[pts.length - 1][0], lng: pts[pts.length - 1][1] }, { lat: p[0], lng: p[1] }); pts.push([p[0], p[1], acc, sg.li, sg.h]); } });
+  const total = acc, at = (k) => { let lo = 0, hi = pts.length - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (pts[mid][2] < k) lo = mid + 1; else hi = mid; } return pts[lo]; };
+  // stretches of the same road; short unnamed links join their neighbour
+  const normLab = (l) => { const mm = /^(NH|SH|MDR)\s*-?\s*(\w+)$/i.exec((l || "").trim()); return mm ? `${mm[1].toUpperCase()}-${mm[2].toUpperCase()}` : (l || "").trim(); };
+  const isRef = (l) => /^(NH|SH|MDR)-/.test(l);
+  // turning angle where km k is: >0 right, <0 left
+  const turnAt = (k) => { const p = at(k), pin = at(Math.max(0, k - 0.4)), pout = at(Math.min(total, k + 0.4)); if (pin === p || pout === p) return 0; return ((bearing(p, pout) - bearing(pin, p) + 540) % 360) - 180; };
+  let st = [];
+  for (const sg of R.segs) { const lab = normLab(labels[sg.li]); const last = st[st.length - 1]; if (last && last.lab === lab) { last.m += sg.m; last.h = Math.min(last.h, sg.h); } else st.push({ lab, m: sg.m, h: sg.h }); }
+  const setK = () => { let k0 = 0; st.forEach((s2) => { s2.k0 = k0; k0 += s2.m / 1000; s2.k1 = k0; }); };
+  // merged stretch is named after the road covering most of it (highway numbers count double)
+  const join = (a, b) => {
+    const labs = { ...(a.labs || { [a.lab]: a.m }) };
+    for (const [l, mm] of Object.entries(b.labs || { [b.lab]: b.m })) labs[l] = (labs[l] || 0) + mm;
+    const best = Object.entries(labs).filter(([l]) => l).sort((x, y) => y[1] * (isRef(y[0]) ? 2 : 1) - x[1] * (isRef(x[0]) ? 2 : 1))[0];
+    return { lab: best ? best[0] : "", labs, m: a.m + b.m, h: Math.min(a.h, b.h) };
+  };
+  for (let pass = 0; pass < 4; pass++) {
+    setK();
+    const out = [];
+    for (const s2 of st) {
+      const last = out[out.length - 1];
+      // same road, a short unnamed link, a tiny piece, or the road simply carries on straight under another name
+      // (two different highway numbers stay apart even when straight: "continue onto NH-22" is worth remembering)
+      const twoRefs = last && isRef(last.lab) && isRef(s2.lab) && last.lab !== s2.lab && s2.m >= 3000 && last.m >= 3000;
+      if (last && (last.lab === s2.lab || (!s2.lab && s2.m < 2500) || s2.m < 400 || (!twoRefs && Math.abs(turnAt(s2.k0)) < 30))) out[out.length - 1] = { ...join(last, s2), k0: last.k0 };
+      else out.push({ ...s2 });
+    }
+    st = out;
+  }
+  setK(); st.forEach((s2) => { s2.cls = roadCls(s2.lab, s2.h); });
+  const placeName = (pt, strong) => { const big = bhNear(pt, strong ? 6 : 4, [0, 1]); if (big.length && big[0][0] < (strong ? 6 : 4)) return big[0][1]; const v = bhNear(pt, 2.5, [2, 3, 4]); return v.length ? v[0][1] : null; };
+  const stops = [];
+  const add = (o) => stops.push(o);
+  add({ k: 0, kind: "start", name: from.name, hi: from.hi || "", lat: from.lat, lng: from.lng, pr: 100 });
+  // turns between stretches
+  for (let i = 1; i < st.length; i++) {
+    const k = st[i].k0, p = at(k), dlt = turnAt(k);
+    const dir = Math.abs(dlt) < 30 ? "Continue" : Math.abs(dlt) > 160 ? "U-turn" : Math.abs(dlt) < 60 ? (dlt > 0 ? "Bear right" : "Bear left") : dlt > 0 ? "Turn right" : "Turn left";
+    const pl = placeName({ lat: p[0], lng: p[1] }, false);
+    add({ k, kind: "turn", lat: p[0], lng: p[1], dir, road: st[i].lab || "local road", name: pl ? pl.name : "", hi: pl ? pl.hi : "", pr: 80 });
+  }
+  // district HQs passed, district borders crossed, towns passed
+  if (BH) {
+    BH.districts.forEach((d) => { if (!d.hq) return; let best = null; for (let k = 0; k <= total; k += 0.5) { const p = at(k), dd = km({ lat: p[0], lng: p[1] }, { lat: d.hq[0], lng: d.hq[1] }); if (!best || dd < best[0]) best = [dd, k]; } if (best && best[0] < 3) add({ k: best[1], kind: "hq", name: d.hqn, hi: d.hqhi, dist: d.n, lat: d.hq[0], lng: d.hq[1], pr: 85 }); });
+    // district runs along the route; runs under 2 km (a road hugging a border) don't count
+    let runs = [];
+    for (let k = 0; k <= total; k += 0.5) { const p = at(k), di = bhDistrictAt(p[0], p[1]); if (di < 0) continue; const last = runs[runs.length - 1]; if (last && last.d === di) last.k1 = k; else runs.push({ d: di, k0: k, k1: k, p }); }
+    runs = runs.filter((r, i) => r.k1 - r.k0 >= 2 || i === 0 || i === runs.length - 1);
+    const merged = []; for (const r of runs) { const last = merged[merged.length - 1]; if (last && last.d === r.d) last.k1 = r.k1; else merged.push(r); }
+    for (let i = 1; i < merged.length; i++) { const r = merged[i], p = at(r.k0); add({ k: r.k0, kind: "border", lat: p[0], lng: p[1], from: BH.districts[merged[i - 1].d].n, to: BH.districts[r.d].n, toHi: BH.districts[r.d].hi, pr: 60 }); }
+  }
+  const seenT = new Set();
+  for (let k = 1; k < total; k += 1) { const p = at(k); for (const [dd, pl] of bhNear({ lat: p[0], lng: p[1] }, 1.2, [0, 1])) if (!seenT.has(pl.i) && dd < 1.2 && !((normName(pl.name) === normName(from.name) && k < 8) || (normName(pl.name) === normName(to.name) && total - k < 8))) { seenT.add(pl.i); add({ k, kind: "town", name: pl.name, hi: pl.hi, lat: pl.lat, lng: pl.lng, pr: pl.t === 0 ? 50 : 40 }); } }
+  add({ k: total, kind: "end", name: to.name, hi: to.hi || "", lat: to.lat, lng: to.lng, pr: 100 });
+  // merge stops that are close together, keep the most important, cap the count
+  stops.sort((a, b) => a.k - b.k);
+  const merged = [];
+  for (const s2 of stops) {
+    const last = merged[merged.length - 1];
+    if (last && s2.k - last.k < Math.max(1.5, total / 60)) {
+      const [hi_, lo_] = s2.pr > last.pr ? [s2, last] : [last, s2];
+      const m2 = { ...hi_ }; if (!m2.name && lo_.name) { m2.name = lo_.name; m2.hi = lo_.hi; } if (lo_.kind === "border" && hi_.kind !== "border") { m2.from = lo_.from; m2.to = lo_.to; m2.toHi = lo_.toHi; m2.alsoBorder = true; } if (lo_.kind === "turn" && hi_.kind !== "turn") { m2.dir = lo_.dir; m2.road = lo_.road; m2.alsoTurn = true; }
+      merged[merged.length - 1] = m2;
+    } else merged.push(s2);
+  }
+  let list = merged;
+  // an unnamed road is described by where it leads
+  list.forEach((s2, i) => { if ((s2.kind === "turn" || s2.alsoTurn) && s2.road === "local road") { const nx = list.slice(i + 1).find((x) => x.name && x.kind !== "border"); s2.road = nx ? `the road to ${nx.name}` : "the local road"; } });
+  while (list.length > 18) { let wi = -1, ws = Infinity; for (let i = 1; i < list.length - 1; i++) { const sc = list[i].pr * 10 + Math.min(list[i].k - list[i - 1].k, list[i + 1].k - list[i].k); if (sc < ws) { ws = sc; wi = i; } } list.splice(wi, 1); }
+  // legs between stops: distance and the main road used
+  const legs = [];
+  for (let i = 0; i < list.length - 1; i++) {
+    const a = list[i].k, b2 = list[i + 1].k, by = {};
+    for (const s2 of st) { const o = Math.max(0, Math.min(b2, s2.k1) - Math.max(a, s2.k0)); if (o > 0) by[s2.lab || ""] = (by[s2.lab || ""] || 0) + o; }
+    const lab = Object.entries(by).sort((x, y) => y[1] - x[1])[0]?.[0] || "", s2 = st.find((x) => x.lab === lab) || st[0];
+    legs.push({ km: b2 - a, road: lab, cls: s2 ? s2.cls : "other" });
+  }
+  const mins = st.reduce((t, s2) => t + s2.m / 1000 / ROUTE_SPEED[s2.cls] * 60, 0);
+  return { stops: list, legs, total, mins, stretches: st, line: pts.map((p) => [p[0], p[1]]) };
+}
+function stopTitle(s) {
+  if (s.kind === "start") return `Start: ${s.name}`;
+  if (s.kind === "end") return `Arrive: ${s.name}`;
+  if (s.kind === "turn") return `${s.dir}${s.road ? ` onto ${s.road}` : ""}${s.name ? ` at ${s.name}` : ""}`;
+  if (s.kind === "border") return `Enter ${s.to} district`;
+  if (s.kind === "hq") return `${s.name} (HQ, ${s.dist})${s.alsoTurn ? ` · ${s.dir} onto ${s.road}` : ""}`;
+  return `${s.name}${s.alsoTurn ? ` · ${s.dir} onto ${s.road}` : ""}${s.alsoBorder ? ` · enter ${s.to}` : ""}`;
+}
+const fmtMins = (m) => m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, "0")} min`;
+
+// --- Patna | Bihar switch and Bihar overview layers ---
+const bhRenderer = L.canvas({ padding: 0.3 });
+const bhLayer = L.layerGroup(), bhLabels = L.layerGroup();
+const osmWeb = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 18, zIndex: 0, attribution: "" });
+const esriWeb = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, zIndex: 0 });
+let bhBuilt = false;
+function bhBuild() {
+  if (bhBuilt || !BH) return; bhBuilt = true;
+  const R = bhRenderer, c = (v) => cssVar(v) || "#888";
+  BH.state.forEach((r) => L.polyline(r, { renderer: R, color: c("--ink"), weight: 2.5, opacity: 0.7, interactive: false }).addTo(bhLayer));
+  BH.rivers.forEach(([nm, g]) => L.polyline(g, { renderer: R, color: "#4a90c8", weight: 1.6, opacity: 0.8, interactive: false }).addTo(bhLayer));
+  BH.rails.forEach((g) => L.polyline(g, { renderer: R, color: c("--muted"), weight: 1.2, dashArray: "4 4", opacity: 0.8, interactive: false }).addTo(bhLayer));
+  const col = { nh: c("--nh"), sh: c("--sh"), mdr: c("--city"), other: c("--city") }, wt = { nh: 3, sh: 2.4, mdr: 1.3, other: 1 };
+  for (const cls of ["other", "mdr", "sh", "nh"]) BH.roads.filter((r) => r[0] === cls).forEach(([k, lab, g]) => {
+    const pl = L.polyline(g, { renderer: R, color: col[k], weight: wt[k], opacity: k === "other" ? 0.55 : 0.9 }).addTo(bhLayer);
+    if (lab) pl.bindTooltip(lab, { sticky: true });
+  });
+  BH.districts.forEach((d) => {
+    d.rings.forEach((r) => L.polygon(r, { renderer: R, color: c("--muted"), weight: 1.2, dashArray: "5 4", fill: true, fillOpacity: 0, interactive: true }).bindTooltip(`${d.n} district${d.hi ? ` · ${d.hi}` : ""}${d.hqn ? ` · HQ ${d.hqn}` : ""}`, { sticky: true }).addTo(bhLayer));
+    if (d.hq) {
+      L.circleMarker(d.hq, { renderer: R, radius: 5, color: c("--ink"), weight: 2, fillColor: c("--sheet"), fillOpacity: 1, interactive: false }).addTo(bhLayer);
+      L.marker(d.hq, { interactive: false, keyboard: false, icon: L.divIcon({ className: "bh-hq", html: `<span>${esc(d.hqn)}</span>`, iconSize: [0, 0] }) }).addTo(bhLabels);
+    }
+    const all = d.rings[0]; const cy = all.reduce((s, p) => s + p[0], 0) / all.length, cx = all.reduce((s, p) => s + p[1], 0) / all.length;
+    L.marker([cy, cx], { interactive: false, keyboard: false, icon: L.divIcon({ className: "bh-dist", html: `<span>${esc(d.n)}<i>${esc(d.hi)}</i></span>`, iconSize: [0, 0] }) }).addTo(bhLabels);
+  });
+  BH.junctions.forEach(([nm, hi, la, lo]) => L.circleMarker([la, lo], { renderer: R, radius: 3, color: "#333", weight: 1, fillColor: "#fff", fillOpacity: 1 }).bindTooltip(`${nm}${hi ? ` · ${hi}` : ""} (railway junction)`).addTo(bhLayer));
+}
+const syncBhLabels = () => { const z = map.getZoom(), el = $("#map"); el.classList.toggle("bh-z-lo", z < 8.5); el.classList.toggle("bh-z-hi", z >= 10); el.classList.toggle("bh-far", REGION === "bihar" && z < 11.5); };
+map.on("zoomend", syncBhLabels);
+async function setRegion(r, opts = {}) {
+  if (r === "bihar") {
+    try { await bhLayersReady(); } catch { flash("The Bihar map could not load. Check your connection and try again."); return; }
+    bhPlacesReady().catch(() => {});
+    REGION = "bihar"; bhBuild();
+    map.setMinZoom(7); map.setMaxBounds(BIHAR_BOUNDS.pad(0.2));
+    bhLayer.addTo(map); bhLabels.addTo(map);
+    // (a new maxBounds cancels an animation started in the same tick, so move on the next one)
+    if (!opts.noFly) setTimeout(() => map.fitBounds(BIHAR_BOUNDS, { animate: false }), 30);
+  } else {
+    REGION = "patna";
+    map.removeLayer(bhLayer); map.removeLayer(bhLabels);
+    map.setView([25.603, 85.122], 13, { animate: false });
+    map.setMinZoom(11); map.setMaxBounds(BOUNDS.pad(0.05));
+  }
+  syncWebTiles(); syncBhLabels(); renderViewbar();
+}
+// outside Patna our stored tiles stop, so in the Bihar view the plain/satellite maps come from the web
+function syncWebTiles() {
+  const bh = REGION === "bihar", want = bh ? (BASE === "map" ? osmWeb : BASE === "sat" ? esriWeb : null) : null;
+  for (const l of [osmWeb, esriWeb]) if (l !== want && map.hasLayer(l)) map.removeLayer(l);
+  if (want && !map.hasLayer(want)) want.addTo(map);
+  // our stored Patna tiles only exist for zoom 11-16; in the Bihar view the web tiles cover everything
+  const local = BASE === "map" ? [base, detail] : BASE === "sat" ? [satBase, satDetail] : [];
+  for (const l of [base, detail, satBase, satDetail]) {
+    const on = !bh && local.includes(l) && (l === satBase || l === satDetail ? !!SAT : Object.keys(TILES).length > 0);
+    if (on && !map.hasLayer(l)) l.addTo(map); else if (!on && map.hasLayer(l)) map.removeLayer(l);
+  }
+}
+
+// --- route sketch state and panel ---
+let rs = { from: null, to: null, R: null, S: null, busy: false, err: "" };
+function rsPick(which, item) { rs[which] = item; rs.R = null; rs.S = null; rs.err = ""; view.rq = ""; view.rqw = null; render(); }
+function rsCandidates(q) {
+  const nq = normName(q); if (nq.length < 2) return [];
+  const sc = (name, hi) => { const n = normName(name); return n === nq ? 0 : n.startsWith(nq) ? 1 : hi && hi.startsWith(q.trim()) ? 1 : 2; };
+  const mine = places.filter((p) => normName(p.name).includes(nq)).map((p) => ({ name: p.name, hi: "", sub: "Your place", lat: +p.lat, lng: +p.lng, s: sc(p.name) }));
+  const lms = LANDMARKS.filter((l) => normName(l.name).includes(nq) || (l.hi || "").includes(q.trim())).map((l) => ({ name: l.name, hi: l.hi, sub: "Patna landmark", lat: l.lat, lng: l.lng, s: sc(l.name, l.hi) + 0.3 }));
+  const bh = bhSearch(q, 10).map((p) => ({ name: p.name, hi: p.hi, sub: `${PTYPE[p.t]} · ${BHP.districts[p.d] || ""}`, lat: p.lat, lng: p.lng, s: sc(p.name, p.hi) + [0, 0.1, 0.5, 0.6, 0.7][p.t] }));
+  return [...mine, ...lms, ...bh].sort((a, b) => a.s - b.s || a.name.length - b.name.length).slice(0, 12);
+}
+function rsField(which, label) {
+  const sel = rs[which], editing = view.rqw === which;
+  if (sel && !editing) return `<div class="rs-field"><span class="rs-tag">${which === "from" ? "A" : "B"}</span><span class="nm">${esc(sel.name)}${sel.hi ? ` <span class="hi">${esc(sel.hi)}</span>` : ""}<span class="sub">${esc(sel.sub || "")}</span></span><button class="btn" type="button" data-rsedit="${which}">Change</button></div>`;
+  const q = editing ? view.rq || "" : "";
+  const hits = editing ? rsCandidates(q) : [];
+  return `<label class="edit rs-in" for="rs-${which}">${label}<input id="rs-${which}" data-rsq="${which}" value="${esc(q)}" placeholder="Type a town, village, landmark or your place" autocomplete="off"></label>
+    ${editing && q.trim().length >= 2 ? `<ul class="list">${hits.length ? hits.map((h, i) => `<li><button type="button" data-rspick="${which}:${i}"><span class="dot" style="--c:var(--ganga)"></span><span class="nm">${esc(h.name)}${h.hi ? ` <span class="hi">${esc(h.hi)}</span>` : ""}<span class="sub">${esc(h.sub)}</span></span></button></li>`).join("") : `<li class="sub-note" style="padding:6px 0">${BHP ? "No place by that name. Try the block or a nearby town." : "Loading Bihar place names…"}</li>`}</ul>` : ""}`;
+}
+function rsView() {
+  const S = rs.S;
+  const legsHtml = S ? `<ol class="rs-list">${S.stops.map((s, i) => `<li class="k-${s.kind}"><span class="rs-num">${i + 1}</span><span class="nm">${esc(stopTitle(s))}${s.hi && s.kind !== "border" ? ` <span class="hi">${esc(s.hi)}</span>` : ""}${s.kind === "border" && s.toHi ? ` <span class="hi">${esc(s.toHi)}</span>` : ""}<span class="sub">at ${s.k.toFixed(0)} km</span></span></li>${S.legs[i] ? `<li class="rs-leg">↓ ${S.legs[i].km.toFixed(S.legs[i].km < 10 ? 1 : 0)} km${S.legs[i].road ? ` on ${esc(S.legs[i].road)}` : ""}</li>` : ""}`).join("")}</ol>` : "";
+  const g = S && gOn() ? gRouteBox(rs.from, rs.to) : "";
+  return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button><button class="btn" type="button" data-act="sk-places">Sketch of places instead</button></div>
+  <div><p class="eyebrow">Route sketch</p><h2>From one place to another</h2></div>
+  <p class="sub-note">Anywhere in Bihar. The sketch shows the turns, the district borders you cross, the district headquarters and towns on the way, and the distance between each.</p>
+  ${rsField("from", "From")}${rsField("to", "To")}
+  <div class="row"><button class="btn primary" type="button" data-act="rs-go" ${!rs.from || !rs.to || rs.busy ? "disabled" : ""}>${rs.busy ? "Finding the route…" : "Find route"}</button>${rs.from && rs.to ? `<button class="btn" type="button" data-act="rs-swap">⇅ Swap</button>` : ""}${S ? `<button class="btn primary" type="button" data-act="rs-draw">Draw sketch</button>` : ""}</div>
+  ${rs.err ? `<p class="notice">${esc(rs.err)}</p>` : ""}
+  ${S ? `<p class="notice"><strong>${S.total.toFixed(0)} km</strong> by road · about <strong>${fmtMins(S.mins)}</strong> (our estimate from road types)</p>${g}${legsHtml}<p class="sub-note">Roads from OpenStreetMap; place names from OpenStreetMap and GeoNames (CC BY 4.0). Check closures and traffic before you set out.</p>` : ""}`;
+}
+async function rsFind() {
+  rs.busy = true; rs.err = ""; render();
+  try {
+    await Promise.all([bhNetReady(), bhPlacesReady(), bhLayersReady()]);
+    const R = bnRoute(rs.from, rs.to);
+    if (!R) { rs.err = "No road route found between these places. One of them may be off the main road network."; }
+    else {
+      rs.R = R; rs.S = routeStops(R, rs.from, rs.to);
+      if (REGION !== "bihar") await setRegion("bihar", { noFly: true });
+      setTimeout(() => map.fitBounds(L.latLngBounds(rs.S.line).pad(0.15), { animate: false }), 30);
+    }
+  } catch { rs.err = "The Bihar road data could not load. Check your connection and try again."; }
+  rs.busy = false; render();
+}
+function rsDrawOnMap() {
+  if (view.mode !== "rsketch" || !rs.S) return;
+  const S = rs.S, c = (v) => cssVar(v);
+  L.polyline(S.line, { color: c("--sheet"), weight: 9, opacity: 0.9, interactive: false }).addTo(lineLayer);
+  L.polyline(S.line, { color: c("--ganga"), weight: 5, opacity: 0.95, interactive: false }).addTo(lineLayer);
+  S.stops.forEach((s, i) => L.marker([s.lat, s.lng], { interactive: false, icon: L.divIcon({ className: "", html: `<div class="endpin rs-${s.kind}">${s.kind === "start" ? "A" : s.kind === "end" ? "B" : i + 1}</div>`, iconSize: [0, 0] }) }).addTo(lineLayer));
+}
+
+// --- the route sketch drawing (hand-drawn style, not to scale) ---
+function drawRouteSketch(canvas) {
+  const S = rs.S; if (!S) return;
+  const W2 = 1600, H2 = 1100, DPR = 2;
+  canvas.width = W2 * DPR; canvas.height = H2 * DPR;
+  const ctx = canvas.getContext("2d"); ctx.scale(DPR, DPR);
+  const ink = "#1f2a2a", paper = "#fbfaf5", soft = "#6b7472", red = "#a62a2a";
+  const RC = { nh: ["#e9b000", "#7a5c00"], sh: ["#1f9d55", "#0c4a28"], mdr: ["#b5566a", "#4d1520"], other: ["#9aa3a1", "#4c5553"] };
+  const rand = rng(sketchSeed), hand = "'Kalam', 'Comic Sans MS', 'Segoe Print', cursive";
+  ctx.fillStyle = paper; ctx.fillRect(0, 0, W2, H2);
+  ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.strokeRect(30, 30, W2 - 60, H2 - 60);
+  const stops = S.stops, n = stops.length;
+  // schematic layout: each leg keeps its true direction, lengths squashed (sqrt) so short and long legs both read
+  const P = kmXY({ lat: stops[0].lat, lng: stops[0].lng }), tp = stops.map((s) => P(s.lat, s.lng));
+  const lay = [[0, 0]];
+  for (let i = 1; i < n; i++) { const vx = tp[i][0] - tp[i - 1][0], vy = tp[i][1] - tp[i - 1][1], r = Math.hypot(vx, vy) || 1e-6, L2 = 0.8 + Math.sqrt(Math.max(S.legs[i - 1].km, 0.3)); lay.push([lay[i - 1][0] + vx / r * L2, lay[i - 1][1] + vy / r * L2]); }
+  for (let it = 0; it < 60; it++) for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) { const dx = lay[j][0] - lay[i][0], dy = lay[j][1] - lay[i][1], d = Math.hypot(dx, dy), min = 1.6; if (d < min) { const ux = d ? dx / d : 1, uy = d ? dy / d : 0, k = (min - d) / 2; lay[i][0] -= ux * k; lay[i][1] -= uy * k; lay[j][0] += ux * k; lay[j][1] += uy * k; } }
+  const X0 = Math.min(...lay.map((p) => p[0])), X1 = Math.max(...lay.map((p) => p[0])), Y0 = Math.min(...lay.map((p) => p[1])), Y1 = Math.max(...lay.map((p) => p[1]));
+  const A = { l: 120, r: 560, t: 190, b: 150 }, sw = W2 - A.l - A.r, sh = H2 - A.t - A.b;
+  // a route running mostly one way would sit in a thin strip: stretch the other way (up to 3x) to give labels room
+  const scx0 = sw / ((X1 - X0) || 1e-6), scy0 = sh / ((Y1 - Y0) || 1e-6), sc = Math.min(scx0, scy0);
+  const scx = Math.min(scx0, sc * 3), scy = Math.min(scy0, sc * 3);
+  const ox = A.l + (sw - (X1 - X0) * scx) / 2, oy = A.t + (sh - (Y1 - Y0) * scy) / 2;
+  const px = (p) => [ox + (p[0] - X0) * scx, H2 - (oy + (p[1] - Y0) * scy)];
+  const sp = lay.map(px);
+  const wob = (a) => a + (rand() - 0.5) * 2.2;
+  const rough = (a, b, w, col) => { for (let pass = 0; pass < 2; pass++) { ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.moveTo(wob(a[0]), wob(a[1])); const mx = (a[0] + b[0]) / 2 + (rand() - 0.5) * 6, my = (a[1] + b[1]) / 2 + (rand() - 0.5) * 6; ctx.quadraticCurveTo(mx, my, wob(b[0]), wob(b[1])); ctx.stroke(); } };
+  const boxes = [];
+  // legs: casing + colour, then the road name and distance in a pill
+  S.legs.forEach((lg, i) => { rough(sp[i], sp[i + 1], 16, RC[lg.cls][1]); });
+  S.legs.forEach((lg, i) => { rough(sp[i], sp[i + 1], 10, RC[lg.cls][0]); });
+  ctx.textBaseline = "middle";
+  S.legs.forEach((lg, i) => {
+    const a = sp[i], b = sp[i + 1], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    const t1 = `${lg.km.toFixed(lg.km < 10 ? 1 : 0)} km`, t2 = lg.road || "";
+    ctx.font = `700 21px ${hand}`; const w1 = ctx.measureText(t1).width; ctx.font = `400 17px ${hand}`; const w2 = t2 ? ctx.measureText(t2).width : 0;
+    const w = Math.max(w1, w2) + 20, h = t2 ? 48 : 30;
+    const nx = -(b[1] - a[1]), ny = b[0] - a[0], nl = Math.hypot(nx, ny) || 1, off = 26;
+    const cx = mx + nx / nl * off, cy = my + ny / nl * off;
+    ctx.fillStyle = paper; ctx.strokeStyle = soft; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect?.(cx - w / 2, cy - h / 2, w, h, 12); ctx.fill(); ctx.stroke();
+    ctx.textAlign = "center"; ctx.fillStyle = ink; ctx.font = `700 21px ${hand}`; ctx.fillText(t1, cx, t2 ? cy - 10 : cy + 1);
+    if (t2) { ctx.fillStyle = RC[lg.cls][1]; ctx.font = `400 17px ${hand}`; ctx.fillText(t2, cx, cy + 12); }
+    boxes.push([cx - w / 2, cy - h / 2, w, h]);
+  });
+  // district borders: a dashed line across the route with the new district's name
+  stops.forEach((s, i) => {
+    if (s.kind !== "border" && !s.alsoBorder) return;
+    const a = sp[Math.max(0, i - 1)], b = sp[Math.min(n - 1, i + 1)], [x, y] = sp[i], dx = b[0] - a[0], dy = b[1] - a[1], L2 = Math.hypot(dx, dy) || 1, ux = -dy / L2, uy = dx / L2;
+    ctx.save(); ctx.setLineDash([9, 7]); ctx.strokeStyle = red; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(x - ux * 60, y - uy * 60); ctx.lineTo(x + ux * 60, y + uy * 60); ctx.stroke(); ctx.restore();
+  });
+  // stops
+  sp.forEach(([x, y]) => boxes.push([x - 16, y - 16, 32, 32]));
+  const over = (r) => boxes.reduce((s2, b) => s2 + Math.max(0, Math.min(r[0] + r[2], b[0] + b[2]) - Math.max(r[0], b[0])) * Math.max(0, Math.min(r[1] + r[3], b[1] + b[3]) - Math.max(r[1], b[1])), 0) + (r[0] < 40 || r[1] < 150 || r[0] + r[2] > W2 - A.r + 20 || r[1] + r[3] > H2 - 40 ? 1e6 : 0);
+  stops.forEach((s, i) => {
+    const [x, y] = sp[i], big = s.kind === "start" || s.kind === "end";
+    ctx.beginPath();
+    if (s.kind === "hq") ctx.rect(x - 12, y - 12, 24, 24); else ctx.arc(x, y, big ? 17 : s.kind === "turn" ? 13 : 10, 0, Math.PI * 2);
+    ctx.fillStyle = big ? ink : s.kind === "turn" ? "#e07b1a" : s.kind === "border" ? paper : s.kind === "hq" ? "#2a5aa6" : paper; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = s.kind === "border" ? red : ink; ctx.stroke();
+    ctx.fillStyle = big ? paper : s.kind === "turn" || s.kind === "hq" ? "#fff" : ink; ctx.font = `700 ${big ? 20 : 15}px ${hand}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(big ? (s.kind === "start" ? "A" : "B") : String(i + 1), x, y + 1);
+    const main = s.kind === "border" ? `→ ${s.to}` : s.kind === "turn" ? (s.name || s.road) : s.name, sub = s.kind === "turn" ? `${s.dir === "Turn left" ? "↰" : s.dir === "Turn right" ? "↱" : "↑"} ${s.dir}${s.road ? ` · ${s.road}` : ""}` : s.kind === "hq" ? `District HQ · ${s.dist}` : s.kind === "border" ? `${s.toHi || ""} district`.trim() : s.hi || "";
+    if (!main) return;
+    ctx.font = `700 ${big ? 26 : 22}px ${hand}`; const tw = ctx.measureText(main).width; ctx.font = `400 17px ${hand}`; const sw2 = sub ? ctx.measureText(sub).width : 0;
+    const w = Math.max(tw, sw2), h = sub ? 46 : 28;
+    // labels alternate sides of the line; try near spots first, then further out
+    const up = [[x - w / 2, y - 26 - h], [x + 18, y - h - 12], [x - 18 - w, y - h - 12]], dn = [[x - w / 2, y + 26], [x + 18, y + 12], [x - 18 - w, y + 12]], sd = [[x + 22, y - h / 2], [x - 22 - w, y - h / 2]];
+    const far = [[x - w / 2, y - 70 - h], [x - w / 2, y + 70], [x + 40, y - h - 50], [x + 40, y + 50], [x - 40 - w, y - h - 50], [x - 40 - w, y + 50]];
+    const cands = [...(i % 2 ? dn : up), ...sd, ...(i % 2 ? up : dn), ...far];
+    let best = cands[0], bs = Infinity; for (const cd of cands) { const v = over([cd[0], cd[1], w, h]); if (v < bs - 1) { bs = v; best = cd; } }
+    if (Math.hypot(best[0] + w / 2 - x, best[1] + h / 2 - y) > 60) { ctx.strokeStyle = soft; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(Math.max(best[0], Math.min(x, best[0] + w)), Math.max(best[1], Math.min(y, best[1] + h))); ctx.stroke(); }
+    ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.globalAlpha = 0.88; ctx.fillStyle = paper; ctx.fillRect(best[0] - 4, best[1] - 2, w + 8, h + 4); ctx.globalAlpha = 1;
+    ctx.fillStyle = s.kind === "border" ? red : ink; ctx.font = `700 ${big ? 26 : 22}px ${hand}`; ctx.fillText(main, best[0], best[1]);
+    if (sub) { ctx.fillStyle = s.kind === "turn" ? "#b35a00" : soft; ctx.font = `400 17px ${hand}`; ctx.fillText(sub, best[0], best[1] + (big ? 30 : 26)); }
+    boxes.push([best[0], best[1], w, h]);
+  });
+  // title, totals, north arrow, stamp
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = ink; ctx.font = `700 38px ${hand}`;
+  const title = `${stops[0].name} → ${stops[n - 1].name}`; ctx.fillText(title.length > 48 ? title.slice(0, 47) + "…" : title, 64, 90);
+  ctx.font = `400 21px ${hand}`; ctx.fillStyle = soft; ctx.fillText(`${S.total.toFixed(0)} km by road · about ${fmtMins(S.mins)} · ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}`, 66, 128);
+  const nx = W2 - A.r - 40, ny = 110; ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(nx, ny - 40); ctx.lineTo(nx - 14, ny + 14); ctx.lineTo(nx, ny + 3); ctx.lineTo(nx + 14, ny + 14); ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(nx, ny - 40); ctx.lineTo(nx, ny + 3); ctx.lineTo(nx + 14, ny + 14); ctx.closePath(); ctx.fill();
+  ctx.font = `700 24px ${hand}`; ctx.textAlign = "center"; ctx.fillText("N", nx, ny - 54);
+  ctx.save(); ctx.translate(250, H2 - 80); ctx.rotate(-0.05); ctx.strokeStyle = red; ctx.lineWidth = 3; ctx.strokeRect(-110, -24, 220, 46); ctx.fillStyle = red; ctx.font = `700 24px ${hand}`; ctx.fillText("NOT TO SCALE", 0, 8); ctx.restore();
+  // legend
+  ctx.textAlign = "left"; ctx.font = `400 17px ${hand}`; let lx = 420; const ly = H2 - 76;
+  for (const [k, t] of [["nh", "National Highway"], ["sh", "State Highway"], ["mdr", "Major / district road"]]) { ctx.fillStyle = RC[k][0]; ctx.fillRect(lx, ly - 6, 30, 10); ctx.fillStyle = soft; ctx.fillText(t, lx + 38, ly + 4); lx += 70 + ctx.measureText(t).width; }
+  // the itinerary column
+  const cx0 = W2 - A.r + 40, cw = A.r - 80; let cy = 70;
+  ctx.strokeStyle = soft; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx0 - 20, 60); ctx.lineTo(cx0 - 20, H2 - 60); ctx.stroke();
+  ctx.fillStyle = ink; ctx.font = `700 28px ${hand}`; ctx.fillText("The way, step by step", cx0, cy + 20); cy += 56;
+  const fit = (t, f) => { ctx.font = f; if (ctx.measureText(t).width <= cw - 40) return t; while (t.length > 3 && ctx.measureText(t + "…").width > cw - 40) t = t.slice(0, -1); return t + "…"; };
+  const lineH = Math.min(34, (H2 - 120 - cy) / (n * 1.75));
+  stops.forEach((s, i) => {
+    ctx.fillStyle = s.kind === "turn" ? "#b35a00" : s.kind === "border" ? red : ink; const f = `${s.kind === "start" || s.kind === "end" ? 700 : 400} ${Math.round(lineH * 0.72)}px ${hand}`;
+    ctx.font = `700 ${Math.round(lineH * 0.72)}px ${hand}`; ctx.fillText(`${i + 1}.`, cx0, cy);
+    ctx.fillText(fit(stopTitle(s), f), cx0 + 36, cy); cy += lineH * 0.85;
+    if (S.legs[i]) { ctx.fillStyle = soft; ctx.font = `400 ${Math.round(lineH * 0.58)}px ${hand}`; ctx.fillText(fit(`↓ ${S.legs[i].km.toFixed(S.legs[i].km < 10 ? 1 : 0)} km${S.legs[i].road ? ` on ${S.legs[i].road}` : ""}`, ctx.font), cx0 + 36, cy); cy += lineH * 0.9; }
+  });
+  ctx.fillStyle = soft; ctx.font = `400 15px ${hand}`; ctx.fillText("Roads © OpenStreetMap contributors · places also GeoNames", cx0, H2 - 50);
+}
 
 // ---------- search (places, landmarks, roads and their local names) ----------
 function searchIndex() {
@@ -2161,6 +2608,15 @@ function searchIndex() {
     const q = norm(input.value);
     if (!q) { close(); return; }
     local = searchIndex().map((it) => [score(it, q), it]).filter(([s]) => s >= 0).sort((a, b) => a[0] - b[0] || a[1].name.length - b[1].name.length).slice(0, gOn() ? 8 : 12).map(([, it]) => it);
+    // towns and villages anywhere in Bihar (OpenStreetMap)
+    if (BHP && input.value.trim().length >= 3) {
+      const taken = new Set(local.map((x) => normName(x.name)));
+      for (const p of bhSearch(input.value, 6)) {
+        if (taken.has(p.n) && p.t > 1) continue;
+        const g = { name: p.name, hi: p.hi, sub: `${PTYPE[p.t]} · ${BHP.districts[p.d] || ""} district`, lat: p.lat, lng: p.lng };
+        local.push({ t: "Bihar", name: p.name, sub: `${p.hi ? p.hi + " · " : ""}${PTYPE[p.t]}, ${BHP.districts[p.d] || ""}`, dot: `class="dot" style="--c:var(--ganga)"`, go: async () => { if (REGION !== "bihar") await setRegion("bihar", { noFly: true }); go({ mode: "bplace", g }); setTimeout(() => map.setView([g.lat, g.lng], p.t <= 1 ? 12 : 13), 30); } });
+      }
+    }
     sel = 0; gHits = []; clearTimeout(gTimer);
     gWait = gOn() && input.value.trim().length >= 3;
     paint();
@@ -2176,7 +2632,7 @@ function searchIndex() {
   const pick = (i) => { const h = hits[i]; if (!h) return; close(); input.value = h.name; input.blur(); h.go(); };
   const mark = () => list.querySelectorAll("li[data-i]").forEach((li) => { const on = +li.dataset.i === sel; li.setAttribute("aria-selected", String(on)); if (on) li.scrollIntoView({ block: "nearest" }); });
   input.addEventListener("input", show);
-  input.addEventListener("focus", () => { if (input.value) show(); });
+  input.addEventListener("focus", () => { if (!BHP) bhPlacesReady().then(() => { if (input.value && document.activeElement === input) show(); }).catch(() => {}); if (input.value) show(); });
   input.addEventListener("keydown", (e) => {
     if (list.hidden) return;
     if (e.key === "ArrowDown") { sel = Math.min(hits.length - 1, sel + 1); mark(); e.preventDefault(); }
@@ -2260,9 +2716,9 @@ map.on("click", (e) => {
 
 $("#btn-google").onclick = () => { go(view.mode === "gsettings" ? { mode: "list" } : { mode: "gsettings" }); if (document.body.classList.contains("fullmap")) setFull(false); };
 $("#btn-remember").onclick = () => { go(view.mode === "remember" ? { mode: "list" } : { mode: "remember" }); if (document.body.classList.contains("fullmap")) setFull(false); };
-$("#btn-sketch").onclick = () => go(view.mode === "sketch" ? { mode: "list" } : { mode: "sketch", q: "", title: view.title || "" });
+$("#btn-sketch").onclick = () => { if (view.mode === "sketch" || view.mode === "rsketch") { go({ mode: "list" }); return; } bhPlacesReady().then(() => { if (view.mode === "rsketch") render(); }).catch(() => {}); bhLayersReady().catch(() => {}); go({ mode: "rsketch", rqw: rs.from ? null : "from", rq: "" }); };
 $("#sk-close").onclick = () => { $("#sketch").hidden = true; };
-$("#sk-redraw").onclick = () => { sketchSeed++; drawSketch($("#sketch-canvas")); };
+$("#sk-redraw").onclick = () => { sketchSeed++; if (view.mode === "rsketch" && rs.S) drawRouteSketch($("#sketch-canvas")); else drawSketch($("#sketch-canvas")); };
 $("#sk-save").onclick = () => saveSketch();
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#sketch").hidden) $("#sketch").hidden = true; });
 $("#btn-add").onclick = () => go(view.mode === "pick" ? { mode: "list" } : { mode: "pick" });
@@ -2289,6 +2745,14 @@ function bind(panel) {
   if (skq) { skq.oninput = () => { view.q = skq.value; view.focusQ = true; render(); }; if (view.focusQ) { skq.focus(); skq.setSelectionRange(skq.value.length, skq.value.length); } }
   const skt = $("#sk-title", panel); if (skt) { skt.oninput = () => { view.title = skt.value; }; }
   const skf = $("#f-sk-title", panel); if (skf) skf.onsubmit = (e) => e.preventDefault();
+  // route sketch: typing, picking and changing the From / To places
+  panel.querySelectorAll("[data-rsq]").forEach((inp) => {
+    inp.oninput = () => { view.rq = inp.value; view.rqw = inp.dataset.rsq; render(); };
+    inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); const first = panel.querySelector(`[data-rspick^="${inp.dataset.rsq}:"]`); if (first) first.click(); } };
+    if (view.rqw === inp.dataset.rsq) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  });
+  panel.querySelectorAll("[data-rspick]").forEach((b) => b.onclick = () => { const [w, i] = b.dataset.rspick.split(":"); const h = rsCandidates(view.rq || "")[+i]; if (h) { rsPick(w, h); if (w === "from" && !rs.to) { view.rqw = "to"; render(); } } });
+  panel.querySelectorAll("[data-rsedit]").forEach((b) => b.onclick = () => go({ ...view, rqw: b.dataset.rsedit, rq: "" }));
   panel.querySelectorAll("[data-act]").forEach((b) => b.onclick = async () => {
     const a = b.dataset.act, p = places.find((x) => x.id === view.id);
     if (a === "back") go({ mode: "list" });
@@ -2309,6 +2773,16 @@ function bind(panel) {
     else if (a === "adj-on") go({ ...view, adjust: b.dataset.key });
     else if (a === "adj-done") go({ ...view, adjust: null });
     else if (a === "sk-draw") openSketch();
+    else if (a === "sk-route") { bhPlacesReady().then(render).catch(() => {}); bhLayersReady().catch(() => {}); go({ mode: "rsketch", rqw: rs.from ? null : "from", rq: "" }); }
+    else if (a === "sk-places") go({ mode: "sketch", q: "", title: view.title || "" });
+    else if (a === "rs-go") rsFind();
+    else if (a === "rs-swap") { [rs.from, rs.to] = [rs.to, rs.from]; rs.R = null; rs.S = null; rsFind(); }
+    else if (a === "rs-draw") openRouteSketch();
+    else if (a === "bp-route-from" || a === "bp-route-to") {
+      const h = anchor("home"), g = view.g, here = { name: g.name, hi: g.hi, sub: g.sub, lat: g.lat, lng: g.lng }, home = h ? { name: h.name, hi: "", sub: "Your place", lat: +h.lat, lng: +h.lng } : null;
+      rs.from = a === "bp-route-from" ? home : here; rs.to = a === "bp-route-from" ? here : null; rs.R = null; rs.S = null;
+      go({ mode: "rsketch", rqw: rs.to ? null : "to", rq: "" }); if (rs.from && rs.to) rsFind();
+    }
     else if (a === "sk-clear") { sketchSel = []; render(); }
     else if (a === "road-edit") go({ ...view, mode: "roadedit" });
     else if (a === "road-back") go({ ...view, mode: "road" });

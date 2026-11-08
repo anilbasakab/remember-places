@@ -862,6 +862,16 @@ p.q { font-family: var(--font-display); font-size: 22px; font-weight: 800; margi
 .rs-list .k-hq .rs-num { background: #2a5aa6; border-color: #2a5aa6; color: #fff; border-radius: 4px; }
 .rs-list .k-start .rs-num, .rs-list .k-end .rs-num { background: var(--ink); color: var(--sheet); }
 .rs-list .rs-leg { padding-left: 34px; font-size: 13px; color: var(--muted); }
+.rs-list li .nm { flex: 1; }
+.rs-x { flex: none; border: 1px solid var(--rule); background: none; color: var(--muted); border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-size: 13px; line-height: 1; }
+.rs-x:hover, .rs-x:focus-visible { color: var(--danger); border-color: var(--danger); }
+.rs-opts { display: flex; flex-direction: column; gap: 6px; }
+.rs-opt { display: flex; gap: 10px; align-items: center; text-align: left; border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; background: none; color: var(--ink); cursor: pointer; font: inherit; }
+.rs-opt.on { border-color: var(--ganga); background: var(--ganga-soft); }
+.rs-opt .nm { display: flex; flex-direction: column; }
+.rs-opt .sub { font-size: 12px; color: var(--muted); }
+.rs-optn { width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--c); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.rs-dists { font-size: 13px; }
 .endpin.rs-turn { background: #e07b1a; color: #fff; }
 .endpin.rs-hq { background: #2a5aa6; color: #fff; }
 .endpin.rs-border { background: var(--sheet); color: var(--danger); border-color: var(--danger); }
@@ -1025,7 +1035,7 @@ body.fullmap #map { height: 100%; }
   <aside class="ledger" id="panel" aria-live="polite"></aside>
 </main>
 <div id="sketch" class="sketch" hidden role="dialog" aria-label="Sketch map">
-  <div class="sk-bar"><strong>Sketch map</strong><span class="sub-note">Not to scale</span><span class="sk-sp"></span>
+  <div class="sk-bar"><strong>Sketch map</strong><span class="sub-note" id="sk-note">Not to scale</span><span class="sk-sp"></span><button class="btn" id="sk-restore" type="button" hidden>Bring back removed points</button>
     <button class="btn primary" id="sk-save" type="button">Save image</button><button class="btn" id="sk-redraw" type="button">Redraw</button><button class="btn" id="sk-close" type="button">Close</button></div>
   <div class="sk-stage"><canvas id="sketch-canvas" aria-label="Hand-drawn style sketch of the chosen places and roads"></canvas></div>
 </div>
@@ -2149,13 +2159,19 @@ async function openSketch() {
   const host = $("#sketch"), cv = $("#sketch-canvas");
   host.hidden = false;
   try { await document.fonts.load("700 26px Kalam"); } catch {}
-  drawSketch(cv);
+  drawSketch(cv); syncSkBar();
 }
 async function openRouteSketch() {
   if (!rs.S) return;
   $("#sketch").hidden = false;
   try { await document.fonts.load("700 26px Kalam"); } catch {}
-  drawRouteSketch($("#sketch-canvas"));
+  drawRouteSketch($("#sketch-canvas")); syncSkBar();
+}
+let rsHits = [];
+function syncSkBar() {
+  const r = view.mode === "rsketch" && rs.S;
+  $("#sk-note").textContent = r ? "Not to scale · tap a numbered point to remove it" : "Not to scale";
+  $("#sk-restore").hidden = !(r && rs.hidden.size);
 }
 function bplaceView() {
   const g = view.g, h = anchor("home");
@@ -2222,7 +2238,7 @@ function bhSearch(q, limit = 8) {
   return hits.sort((a, b) => a[0] - b[0] || a[1].name.length - b[1].name.length).slice(0, limit).map((h) => h[1]);
 }
 // --- statewide route: A* over the Bihar network between two points ---
-function bnRoute(a, b) {
+function bnRoute(a, b, pen = null) {
   const N = BN, S = netSnaps(a, N), D = netSnaps(b, N); if (!S.length || !D.length) return null;
   const dist = new Float64Array(N.n).fill(Infinity), prev = new Int32Array(N.n).fill(-1), seed = new Int32Array(N.n).fill(-1), h = [];
   const hx = (v) => km({ lat: N.lat[v], lng: N.lng[v] }, b) * 1000;
@@ -2236,7 +2252,7 @@ function bnRoute(a, b) {
     if (fc > c + hx(u) + 1e-6) continue;
     if (fc >= best) break;
     const g = goal.get(u); if (g) for (const [x, k] of g) if (c + x < best) { best = c + x; bestNode = u; bestK = k; }
-    for (let k = N.deg[u]; k < N.deg[u + 1]; k++) { const v = N.adjTo[k], e = N.adjE[k], nc = c + N.el[e]; if (nc < dist[v]) { dist[v] = nc; prev[v] = e; seed[v] = -1; heapPush(h, nc + hx(v), v); } }
+    for (let k = N.deg[u]; k < N.deg[u + 1]; k++) { const v = N.adjTo[k], e = N.adjE[k], nc = c + N.el[e] * (pen ? pen.get(e) || 1 : 1); if (nc < dist[v]) { dist[v] = nc; prev[v] = e; seed[v] = -1; heapPush(h, nc + hx(v), v); } }
   }
   if (bestNode < 0) return null;
   const d = D[bestK], edges = []; let u = bestNode;
@@ -2248,11 +2264,13 @@ function bnRoute(a, b) {
   for (const [e, fwd] of edges) segs.push({ pts: N.geom(e, fwd), li: N.r[e], h: N.eh[e] });
   segs.push({ pts: [[N.lat[bestNode], N.lng[bestNode]], [d.q.lat, d.q.lng], [b.lat, b.lng]], li: N.r[d.e], h: N.eh[d.e] });
   for (const sg of segs) { sg.m = 0; for (let i = 1; i < sg.pts.length; i++) sg.m += km({ lat: sg.pts[i - 1][0], lng: sg.pts[i - 1][1] }, { lat: sg.pts[i][0], lng: sg.pts[i][1] }) * 1000; }
-  return { km: segs.reduce((t, sg) => t + sg.m, 0) / 1000, segs };
+  return { km: segs.reduce((t, sg) => t + sg.m, 0) / 1000, segs, edges: edges.map((x) => x[0]) };
 }
 const bearing = (p, q) => { const r = Math.PI / 180, y = Math.sin((q[1] - p[1]) * r) * Math.cos(q[0] * r), x = Math.cos(p[0] * r) * Math.sin(q[0] * r) - Math.sin(p[0] * r) * Math.cos(q[0] * r) * Math.cos((q[1] - p[1]) * r); return (Math.atan2(y, x) / r + 360) % 360; };
 const roadCls = (label, h) => /^NH-/.test(label) || h <= 1 ? "nh" : /^SH-/.test(label) ? "sh" : /^MDR/.test(label) || h <= 3 ? "mdr" : "other";
 const ROUTE_SPEED = { nh: 50, sh: 40, mdr: 32, other: 25 };
+const RS_OPT_COL = ["#0e6670", "#c2410c", "#7c3aed"];
+const RS_DIST_COL = ["#d9a441", "#5b9b6b", "#6a8fc7", "#c2738a", "#8f7bc7", "#c99a5b", "#4fa3a5", "#b0805a"];
 // turn a route into memorable stops: start, turns, district HQs, district borders, towns, end
 function routeStops(R, from, to) {
   const labels = BN.labels, pts = [];
@@ -2300,6 +2318,7 @@ function routeStops(R, from, to) {
     add({ k, kind: "turn", lat: p[0], lng: p[1], dir, road: st[i].lab || "local road", name: pl ? pl.name : "", hi: pl ? pl.hi : "", pr: 80 });
   }
   // district HQs passed, district borders crossed, towns passed
+  let distOrder = [];
   if (BH) {
     BH.districts.forEach((d) => { if (!d.hq) return; let best = null; for (let k = 0; k <= total; k += 0.5) { const p = at(k), dd = km({ lat: p[0], lng: p[1] }, { lat: d.hq[0], lng: d.hq[1] }); if (!best || dd < best[0]) best = [dd, k]; } if (best && best[0] < 3) add({ k: best[1], kind: "hq", name: d.hqn, hi: d.hqhi, dist: d.n, lat: d.hq[0], lng: d.hq[1], pr: 85 }); });
     // district runs along the route; runs under 2 km (a road hugging a border) don't count
@@ -2307,6 +2326,7 @@ function routeStops(R, from, to) {
     for (let k = 0; k <= total; k += 0.5) { const p = at(k), di = bhDistrictAt(p[0], p[1]); if (di < 0) continue; const last = runs[runs.length - 1]; if (last && last.d === di) last.k1 = k; else runs.push({ d: di, k0: k, k1: k, p }); }
     runs = runs.filter((r, i) => r.k1 - r.k0 >= 2 || i === 0 || i === runs.length - 1);
     const merged = []; for (const r of runs) { const last = merged[merged.length - 1]; if (last && last.d === r.d) last.k1 = r.k1; else merged.push(r); }
+    distOrder = merged.map((r) => r.d);
     for (let i = 1; i < merged.length; i++) { const r = merged[i], p = at(r.k0); add({ k: r.k0, kind: "border", lat: p[0], lng: p[1], from: BH.districts[merged[i - 1].d].n, to: BH.districts[r.d].n, toHi: BH.districts[r.d].hi, pr: 60 }); }
   }
   const seenT = new Set();
@@ -2327,16 +2347,20 @@ function routeStops(R, from, to) {
   // an unnamed road is described by where it leads
   list.forEach((s2, i) => { if ((s2.kind === "turn" || s2.alsoTurn) && s2.road === "local road") { const nx = list.slice(i + 1).find((x) => x.name && x.kind !== "border"); s2.road = nx ? `the road to ${nx.name}` : "the local road"; } });
   while (list.length > 18) { let wi = -1, ws = Infinity; for (let i = 1; i < list.length - 1; i++) { const sc = list[i].pr * 10 + Math.min(list[i].k - list[i - 1].k, list[i + 1].k - list[i].k); if (sc < ws) { ws = sc; wi = i; } } list.splice(wi, 1); }
-  // legs between stops: distance and the main road used
-  const legs = [];
-  for (let i = 0; i < list.length - 1; i++) {
-    const a = list[i].k, b2 = list[i + 1].k, by = {};
-    for (const s2 of st) { const o = Math.max(0, Math.min(b2, s2.k1) - Math.max(a, s2.k0)); if (o > 0) by[s2.lab || ""] = (by[s2.lab || ""] || 0) + o; }
-    const lab = Object.entries(by).sort((x, y) => y[1] - x[1])[0]?.[0] || "", s2 = st.find((x) => x.lab === lab) || st[0];
-    legs.push({ km: b2 - a, road: lab, cls: s2 ? s2.cls : "other" });
-  }
+  list.forEach((s2, i) => { s2.id = i; });
+  // legs between (visible) stops: distance and the main road used
+  const legsFor = (lst) => {
+    const legs = [];
+    for (let i = 0; i < lst.length - 1; i++) {
+      const a = lst[i].k, b2 = lst[i + 1].k, by = {};
+      for (const s2 of st) { const o = Math.max(0, Math.min(b2, s2.k1) - Math.max(a, s2.k0)); if (o > 0) by[s2.lab || ""] = (by[s2.lab || ""] || 0) + o; }
+      const lab = Object.entries(by).sort((x, y) => y[1] - x[1])[0]?.[0] || "", s2 = st.find((x) => x.lab === lab) || st[0];
+      legs.push({ km: b2 - a, road: lab, cls: s2 ? s2.cls : "other" });
+    }
+    return legs;
+  };
   const mins = st.reduce((t, s2) => t + s2.m / 1000 / ROUTE_SPEED[s2.cls] * 60, 0);
-  return { stops: list, legs, total, mins, stretches: st, line: pts.map((p) => [p[0], p[1]]) };
+  return { all: list, stops: list, legs: legsFor(list), legsFor, total, mins, stretches: st, dists: distOrder, line: pts.map((p) => [p[0], p[1]]) };
 }
 function stopTitle(s) {
   if (s.kind === "start") return `Start: ${s.name}`;
@@ -2409,8 +2433,32 @@ function syncWebTiles() {
 }
 
 // --- route sketch state and panel ---
-let rs = { from: null, to: null, R: null, S: null, busy: false, err: "" };
-function rsPick(which, item) { rs[which] = item; rs.R = null; rs.S = null; rs.err = ""; view.rq = ""; view.rqw = null; render(); }
+let rs = { from: null, to: null, R: null, S: null, opts: [], sel: 0, hidden: new Set(), busy: false, err: "" };
+function rsPick(which, item) { rs[which] = item; rs.R = null; rs.S = null; rs.opts = []; rs.err = ""; view.rq = ""; view.rqw = null; render(); }
+// up to 3 genuinely different routes: each new search makes roads already used 1.8x "longer"
+function rsAlternatives(a, b) {
+  const N = BN, out = [], pen = new Map();
+  const R0 = bnRoute(a, b); if (!R0) return [];
+  out.push(R0);
+  const len = (R) => R.edges.reduce((s, e) => s + N.el[e], 0) || 1;
+  const overlap = (R, O) => { const set = new Set(O.edges); return R.edges.reduce((s, e) => s + (set.has(e) ? N.el[e] : 0), 0) / len(R); };
+  let last = R0;
+  for (let i = 0; i < 7 && out.length < 3; i++) {
+    for (const e of last.edges) pen.set(e, (pen.get(e) || 1) * 1.8);
+    const R = bnRoute(a, b, pen); if (!R) break;
+    last = R;
+    if (R.km <= R0.km * 1.5 && out.every((O) => overlap(R, O) < 0.75 && overlap(O, R) < 0.75)) out.push(R);
+  }
+  return out.map((R) => ({ R, S: routeStops(R, a, b) })).sort((x, y) => x.S.total - y.S.total);
+}
+function rsChoose(i) { rs.sel = i; rs.R = rs.opts[i].R; rs.S = rs.opts[i].S; rs.hidden = new Set(); rsApplyHidden(); }
+function rsApplyHidden() { const S = rs.S; if (!S) return; S.stops = S.all.filter((s) => !rs.hidden.has(s.id)); S.legs = S.legsFor(S.stops); if (!$("#sketch").hidden && view.mode === "rsketch") drawRouteSketch($("#sketch-canvas")); }
+function rsSummary(S) {
+  const by = {}; for (const s2 of S.stretches) if (s2.lab) by[s2.lab] = (by[s2.lab] || 0) + s2.m * (/^(NH|SH)-/.test(s2.lab) ? 2 : 1);
+  const roads = Object.entries(by).sort((a, b) => b[1] - a[1]).slice(0, 3).map((x) => x[0]);
+  const via = S.all.filter((s) => s.kind === "hq" || (s.kind === "town" && s.pr >= 50)).map((s) => s.name).filter((v, i, a) => v && a.indexOf(v) === i).slice(0, 3);
+  return `${roads.length ? roads.join(", ") : "local roads"}${via.length ? ` · via ${via.join(", ")}` : ""}`;
+}
 function rsCandidates(q) {
   const nq = normName(q); if (nq.length < 2) return [];
   const sc = (name, hi) => { const n = normName(name); return n === nq ? 0 : n.startsWith(nq) ? 1 : hi && hi.startsWith(q.trim()) ? 1 : 2; };
@@ -2429,7 +2477,10 @@ function rsField(which, label) {
 }
 function rsView() {
   const S = rs.S;
-  const legsHtml = S ? `<ol class="rs-list">${S.stops.map((s, i) => `<li class="k-${s.kind}"><span class="rs-num">${i + 1}</span><span class="nm">${esc(stopTitle(s))}${s.hi && s.kind !== "border" ? ` <span class="hi">${esc(s.hi)}</span>` : ""}${s.kind === "border" && s.toHi ? ` <span class="hi">${esc(s.toHi)}</span>` : ""}<span class="sub">at ${s.k.toFixed(0)} km</span></span></li>${S.legs[i] ? `<li class="rs-leg">↓ ${S.legs[i].km.toFixed(S.legs[i].km < 10 ? 1 : 0)} km${S.legs[i].road ? ` on ${esc(S.legs[i].road)}` : ""}</li>` : ""}`).join("")}</ol>` : "";
+  const legsHtml = S ? `<ol class="rs-list">${S.stops.map((s, i) => `<li class="k-${s.kind}"><span class="rs-num">${i + 1}</span><span class="nm">${esc(stopTitle(s))}${s.hi && s.kind !== "border" ? ` <span class="hi">${esc(s.hi)}</span>` : ""}${s.kind === "border" && s.toHi ? ` <span class="hi">${esc(s.toHi)}</span>` : ""}<span class="sub">at ${s.k.toFixed(0)} km</span></span>${s.kind !== "start" && s.kind !== "end" ? `<button class="rs-x" type="button" data-rshide="${s.id}" title="Remove this point from the sketch" aria-label="Remove ${esc(stopTitle(s))}">✕</button>` : ""}</li>${S.legs[i] ? `<li class="rs-leg">↓ ${S.legs[i].km.toFixed(S.legs[i].km < 10 ? 1 : 0)} km${S.legs[i].road ? ` on ${esc(S.legs[i].road)}` : ""}</li>` : ""}`).join("")}</ol>
+    ${rs.hidden.size ? `<div class="row"><span class="sub-note">${rs.hidden.size} point${rs.hidden.size > 1 ? "s" : ""} removed.</span><button class="btn" type="button" data-act="rs-restore">Bring them back</button></div>` : ""}` : "";
+  const optsHtml = rs.opts.length > 1 ? `<p class="eyebrow grp">${rs.opts.length} routes found · pick one</p><div class="rs-opts">${rs.opts.map((o, i) => `<button type="button" class="rs-opt${i === rs.sel ? " on" : ""}" data-rsopt="${i}" aria-pressed="${i === rs.sel}"><span class="rs-optn" style="--c:${RS_OPT_COL[i]}">${i + 1}</span><span class="nm"><strong>${o.S.total.toFixed(0)} km · ${fmtMins(o.S.mins)}</strong><span class="sub">${esc(rsSummary(o.S))}</span></span></button>`).join("")}</div>` : "";
+  const distHtml = S && BH && S.dists.length ? `<p class="notice rs-dists"><strong>Districts on the way:</strong> ${S.dists.map((d) => esc(BH.districts[d].n)).join(" → ")}</p>` : "";
   const g = S && gOn() ? gRouteBox(rs.from, rs.to) : "";
   return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button><button class="btn" type="button" data-act="sk-places">Sketch of places instead</button></div>
   <div><p class="eyebrow">Route sketch</p><h2>From one place to another</h2></div>
@@ -2437,18 +2488,19 @@ function rsView() {
   ${rsField("from", "From")}${rsField("to", "To")}
   <div class="row"><button class="btn primary" type="button" data-act="rs-go" ${!rs.from || !rs.to || rs.busy ? "disabled" : ""}>${rs.busy ? "Finding the route…" : "Find route"}</button>${rs.from && rs.to ? `<button class="btn" type="button" data-act="rs-swap">⇅ Swap</button>` : ""}${S ? `<button class="btn primary" type="button" data-act="rs-draw">Draw sketch</button>` : ""}</div>
   ${rs.err ? `<p class="notice">${esc(rs.err)}</p>` : ""}
-  ${S ? `<p class="notice"><strong>${S.total.toFixed(0)} km</strong> by road · about <strong>${fmtMins(S.mins)}</strong> (our estimate from road types)</p>${g}${legsHtml}<p class="sub-note">Roads from OpenStreetMap; place names from OpenStreetMap and GeoNames (CC BY 4.0). Check closures and traffic before you set out.</p>` : ""}`;
+  ${optsHtml}
+  ${S ? `<p class="notice"><strong>${S.total.toFixed(0)} km</strong> by road · about <strong>${fmtMins(S.mins)}</strong> (our estimate from road types)</p>${distHtml}${g}<p class="sub-note">Too many points? Tap ✕ to drop any of them; the distances join up.</p>${legsHtml}<p class="sub-note">Roads from OpenStreetMap; place names from OpenStreetMap and GeoNames (CC BY 4.0). Check closures and traffic before you set out.</p>` : ""}`;
 }
 async function rsFind() {
   rs.busy = true; rs.err = ""; render();
   try {
     await Promise.all([bhNetReady(), bhPlacesReady(), bhLayersReady()]);
-    const R = bnRoute(rs.from, rs.to);
-    if (!R) { rs.err = "No road route found between these places. One of them may be off the main road network."; }
+    const opts = rsAlternatives(rs.from, rs.to);
+    if (!opts.length) { rs.err = "No road route found between these places. One of them may be off the main road network."; rs.opts = []; rs.S = null; }
     else {
-      rs.R = R; rs.S = routeStops(R, rs.from, rs.to);
+      rs.opts = opts; rsChoose(0);
       if (REGION !== "bihar") await setRegion("bihar", { noFly: true });
-      setTimeout(() => map.fitBounds(L.latLngBounds(rs.S.line).pad(0.15), { animate: false }), 30);
+      setTimeout(() => map.fitBounds(L.latLngBounds(opts.flatMap((o) => o.S.line)).pad(0.12), { animate: false }), 30);
     }
   } catch { rs.err = "The Bihar road data could not load. Check your connection and try again."; }
   rs.busy = false; render();
@@ -2456,6 +2508,10 @@ async function rsFind() {
 function rsDrawOnMap() {
   if (view.mode !== "rsketch" || !rs.S) return;
   const S = rs.S, c = (v) => cssVar(v);
+  // districts on the way, lightly shaded
+  if (BH) S.dists.forEach((d, i) => BH.districts[d].rings.forEach((r) => L.polygon(r, { renderer: bhRenderer, color: RS_DIST_COL[i % RS_DIST_COL.length], weight: 1.5, fillColor: RS_DIST_COL[i % RS_DIST_COL.length], fillOpacity: 0.16, interactive: false }).addTo(lineLayer)));
+  // the other route options, thin and dashed
+  rs.opts.forEach((o, i) => { if (i !== rs.sel) L.polyline(o.S.line, { color: RS_OPT_COL[i], weight: 4, opacity: 0.75, dashArray: "8 7" }).bindTooltip(`Route ${i + 1}: ${o.S.total.toFixed(0)} km`, { sticky: true }).on("click", () => { rsChoose(i); render(); }).addTo(lineLayer); });
   L.polyline(S.line, { color: c("--sheet"), weight: 9, opacity: 0.9, interactive: false }).addTo(lineLayer);
   L.polyline(S.line, { color: c("--ganga"), weight: 5, opacity: 0.95, interactive: false }).addTo(lineLayer);
   S.stops.forEach((s, i) => L.marker([s.lat, s.lng], { interactive: false, icon: L.divIcon({ className: "", html: `<div class="endpin rs-${s.kind}">${s.kind === "start" ? "A" : s.kind === "end" ? "B" : i + 1}</div>`, iconSize: [0, 0] }) }).addTo(lineLayer));
@@ -2489,6 +2545,39 @@ function drawRouteSketch(canvas) {
   const wob = (a) => a + (rand() - 0.5) * 2.2;
   const rough = (a, b, w, col) => { for (let pass = 0; pass < 2; pass++) { ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth = w; ctx.lineCap = "round"; ctx.moveTo(wob(a[0]), wob(a[1])); const mx = (a[0] + b[0]) / 2 + (rand() - 0.5) * 6, my = (a[1] + b[1]) / 2 + (rand() - 0.5) * 6; ctx.quadraticCurveTo(mx, my, wob(b[0]), wob(b[1])); ctx.stroke(); } };
   const boxes = [];
+  // the districts the route passes through, bent with the same schematic so the route sits inside them
+  if (BH && S.dists.length && n > 1) {
+    const mean = (a) => [a.reduce((s, p) => s + p[0], 0) / a.length, a.reduce((s, p) => s + p[1], 0) / a.length];
+    const cT = mean(tp), cL = mean(lay);
+    const mT = tp.reduce((s, p) => s + Math.hypot(p[0] - cT[0], p[1] - cT[1]), 0) / n || 1, mL = lay.reduce((s, p) => s + Math.hypot(p[0] - cL[0], p[1] - cL[1]), 0) / n || 1, kk = mL / mT;
+    const T0 = (p) => [cL[0] + (p[0] - cT[0]) * kk, cL[1] + (p[1] - cT[1]) * kk];
+    const off = tp.map((p, i) => { const b = T0(p); return [lay[i][0] - b[0], lay[i][1] - b[1]]; });
+    const warp = (p) => { const b = T0(p); let wx = 0, wy = 0, ws = 0; for (let i = 0; i < n; i++) { const w = 1 / ((p[0] - tp[i][0]) ** 2 + (p[1] - tp[i][1]) ** 2 + 4); wx += w * off[i][0]; wy += w * off[i][1]; ws += w; } return [b[0] + wx / ws, b[1] + wy / ws]; };
+    const clip = [36, 150, W2 - A.r - 56, H2 - 260];
+    ctx.save(); ctx.beginPath(); ctx.rect(...clip); ctx.clip();
+    const uniq = [...new Set(S.dists)], labelAt = [];
+    uniq.forEach((d, j) => {
+      const col = RS_DIST_COL[j % RS_DIST_COL.length], inside = [];
+      for (const r of BH.districts[d].rings) {
+        const q = r.map(([la, lo]) => px(warp(P(la, lo))));
+        ctx.beginPath(); q.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath();
+        ctx.globalAlpha = 0.17; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 0.9; ctx.setLineDash([12, 7]); ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+        for (const [x, y] of q) if (x > clip[0] + 60 && x < clip[0] + clip[2] - 60 && y > clip[1] + 30 && y < clip[1] + clip[3] - 30) inside.push([x, y]);
+      }
+      // name: middle of the district's visible part, or beside its stops on the route
+      const onRoute = stops.map((s, i) => [s, sp[i]]).filter(([s]) => bhDistrictAt(s.lat, s.lng) === d).map((x) => x[1]);
+      let at2 = inside.length > 5 ? mean(inside) : onRoute.length ? mean(onRoute) : null;
+      if (at2 && onRoute.length && Math.min(...onRoute.map((q) => Math.hypot(q[0] - at2[0], q[1] - at2[1]))) < 40) at2 = [at2[0] + 70, at2[1] - 60];
+      if (at2) labelAt.push([BH.districts[d], at2, col]);
+    });
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (const [dd, [x, y], col] of labelAt) {
+      ctx.globalAlpha = 0.55; ctx.fillStyle = "#2c3533"; ctx.font = `700 30px ${hand}`; ctx.fillText(dd.n.toUpperCase(), x, y);
+      if (dd.hi) { ctx.font = `400 22px ${hand}`; ctx.fillText(dd.hi, x, y + 30); }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
   // legs: casing + colour, then the road name and distance in a pill
   S.legs.forEach((lg, i) => { rough(sp[i], sp[i + 1], 16, RC[lg.cls][1]); });
   S.legs.forEach((lg, i) => { rough(sp[i], sp[i + 1], 10, RC[lg.cls][0]); });
@@ -2535,6 +2624,7 @@ function drawRouteSketch(canvas) {
     if (sub) { ctx.fillStyle = s.kind === "turn" ? "#b35a00" : soft; ctx.font = `400 17px ${hand}`; ctx.fillText(sub, best[0], best[1] + (big ? 30 : 26)); }
     boxes.push([best[0], best[1], w, h]);
   });
+  rsHits = stops.map((s, i) => ({ x: sp[i][0], y: sp[i][1], id: s.id, kind: s.kind }));
   // title, totals, north arrow, stamp
   ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = ink; ctx.font = `700 38px ${hand}`;
   const title = `${stops[0].name} → ${stops[n - 1].name}`; ctx.fillText(title.length > 48 ? title.slice(0, 47) + "…" : title, 64, 90);
@@ -2720,6 +2810,13 @@ $("#btn-google").onclick = () => { go(view.mode === "gsettings" ? { mode: "list"
 $("#btn-remember").onclick = () => { go(view.mode === "remember" ? { mode: "list" } : { mode: "remember" }); if (document.body.classList.contains("fullmap")) setFull(false); };
 $("#btn-sketch").onclick = () => { if (view.mode === "sketch" || view.mode === "rsketch") { go({ mode: "list" }); return; } bhPlacesReady().then(() => { if (view.mode === "rsketch") render(); }).catch(() => {}); bhLayersReady().catch(() => {}); go({ mode: "rsketch", rqw: rs.from ? null : "from", rq: "" }); };
 $("#sk-close").onclick = () => { $("#sketch").hidden = true; };
+$("#sketch-canvas").addEventListener("click", (e) => {
+  if (view.mode !== "rsketch" || !rs.S) return;
+  const r = e.currentTarget.getBoundingClientRect(), x = (e.clientX - r.left) * 1600 / r.width, y = (e.clientY - r.top) * 1100 / r.height;
+  let best = null; for (const h of rsHits) { const d = Math.hypot(h.x - x, h.y - y); if (h.kind !== "start" && h.kind !== "end" && d < 30 && (!best || d < best.d)) best = { ...h, d }; }
+  if (best) { rs.hidden.add(best.id); rsApplyHidden(); render(); syncSkBar(); }
+});
+$("#sk-restore").onclick = () => { rs.hidden.clear(); rsApplyHidden(); render(); syncSkBar(); };
 $("#sk-redraw").onclick = () => { sketchSeed++; if (view.mode === "rsketch" && rs.S) drawRouteSketch($("#sketch-canvas")); else drawSketch($("#sketch-canvas")); };
 $("#sk-save").onclick = () => saveSketch();
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#sketch").hidden) $("#sketch").hidden = true; });
@@ -2755,6 +2852,8 @@ function bind(panel) {
   });
   panel.querySelectorAll("[data-rspick]").forEach((b) => b.onclick = () => { const [w, i] = b.dataset.rspick.split(":"); const h = rsCandidates(view.rq || "")[+i]; if (h) { rsPick(w, h); if (w === "from" && !rs.to) { view.rqw = "to"; render(); } } });
   panel.querySelectorAll("[data-rsedit]").forEach((b) => b.onclick = () => go({ ...view, rqw: b.dataset.rsedit, rq: "" }));
+  panel.querySelectorAll("[data-rsopt]").forEach((b) => b.onclick = () => { rsChoose(+b.dataset.rsopt); render(); });
+  panel.querySelectorAll("[data-rshide]").forEach((b) => b.onclick = () => { rs.hidden.add(+b.dataset.rshide); rsApplyHidden(); render(); });
   panel.querySelectorAll("[data-act]").forEach((b) => b.onclick = async () => {
     const a = b.dataset.act, p = places.find((x) => x.id === view.id);
     if (a === "back") go({ mode: "list" });
@@ -2780,6 +2879,7 @@ function bind(panel) {
     else if (a === "rs-go") rsFind();
     else if (a === "rs-swap") { [rs.from, rs.to] = [rs.to, rs.from]; rs.R = null; rs.S = null; rsFind(); }
     else if (a === "rs-draw") openRouteSketch();
+    else if (a === "rs-restore") { rs.hidden.clear(); rsApplyHidden(); render(); }
     else if (a === "bp-route-from" || a === "bp-route-to") {
       const h = anchor("home"), g = view.g, here = { name: g.name, hi: g.hi, sub: g.sub, lat: g.lat, lng: g.lng }, home = h ? { name: h.name, hi: "", sub: "Your place", lat: +h.lat, lng: +h.lng } : null;
       rs.from = a === "bp-route-from" ? home : here; rs.to = a === "bp-route-from" ? here : null; rs.R = null; rs.S = null;

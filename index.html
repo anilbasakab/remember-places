@@ -872,6 +872,10 @@ p.q { font-family: var(--font-display); font-size: 22px; font-weight: 800; margi
 .rs-opt .sub { font-size: 12px; color: var(--muted); }
 .rs-optn { width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--c); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
 .rs-dists { font-size: 13px; }
+.rs-saved { display: flex; flex-direction: column; gap: 6px; }
+.rs-saved .rs-srow { display: flex; align-items: center; gap: 6px; }
+.rs-saved .rs-srow > button:first-child { flex: 1; }
+.rs-delq { display: flex; align-items: center; gap: 6px; font-size: 13px; }
 .endpin.rs-turn { background: #e07b1a; color: #fff; }
 .endpin.rs-hq { background: #2a5aa6; color: #fff; }
 .endpin.rs-border { background: var(--sheet); color: var(--danger); border-color: var(--danger); }
@@ -1035,7 +1039,7 @@ body.fullmap #map { height: 100%; }
   <aside class="ledger" id="panel" aria-live="polite"></aside>
 </main>
 <div id="sketch" class="sketch" hidden role="dialog" aria-label="Sketch map">
-  <div class="sk-bar"><strong>Sketch map</strong><span class="sub-note" id="sk-note">Not to scale</span><span class="sk-sp"></span><button class="btn" id="sk-restore" type="button" hidden>Bring back removed points</button>
+  <div class="sk-bar"><strong>Sketch map</strong><span class="sub-note" id="sk-note">Not to scale</span><span class="sk-sp"></span><button class="btn" id="sk-restore" type="button" hidden>Bring back removed points</button><button class="btn" id="sk-saveroute" type="button" hidden>★ Save route</button>
     <button class="btn primary" id="sk-save" type="button">Save image</button><button class="btn" id="sk-redraw" type="button">Redraw</button><button class="btn" id="sk-close" type="button">Close</button></div>
   <div class="sk-stage"><canvas id="sketch-canvas" aria-label="Hand-drawn style sketch of the chosen places and roads"></canvas></div>
 </div>
@@ -1476,6 +1480,7 @@ function flash(m) { flashMsg = m; render(); setTimeout(() => { flashMsg = ""; re
   try { db = await window.claude?.use?.("db"); } catch { db = null; }
   if (!db) { clearTimeout(timer); dbState = "unavailable"; render(); return; }
   col = db.collection("places");
+  db.collection("sketches").onSnapshot((snap) => { savedRoutes = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt))); if (view.mode === "rsketch") render(); syncSkBar(); }, () => {});
   db.collection("lmfix").onSnapshot((snap) => { snap.docs.forEach((d) => { lmFix[d.id] = d.data(); }); applyLmFix(); if (typeof rrMemo !== "undefined") rrMemo.clear(); render(); }, () => {});
   db.collection("roads").onSnapshot((snap) => { roadInfo = {}; snap.docs.forEach((d) => { roadInfo[d.id] = d.data(); }); if (view.mode === "road") render(); }, () => {});
   col.onSnapshot((snap) => {
@@ -1652,6 +1657,7 @@ function listView() {
   }).join("");
   return `<div><p class="eyebrow">Your places · ${places.length}</p><h2>Your three anchors</h2></div>${between}<ul class="list">${items}</ul>
   <p class="notice">Pins are locked. To move one, open it and tap <strong>Adjust position</strong>. Tap anything on the map to see its road distance from home.</p>
+  ${"serviceWorker" in navigator ? `<div class="gbox"><p class="eyebrow" style="margin:0">Use without internet</p><span class="sub-note">Keeps all map data on this device (about 30 MB): the Patna map and satellite pictures, road distances, the Bihar map, places and routes. Web map backgrounds and Google features still need internet.</span><div class="row"><button class="btn" type="button" data-act="offline">⬇ Download map data</button></div></div>` : ""}
   ${refLists()}`;
 }
 function rememberView() {
@@ -2172,6 +2178,7 @@ function syncSkBar() {
   const r = view.mode === "rsketch" && rs.S;
   $("#sk-note").textContent = r ? "Not to scale · tap a numbered point to remove it" : "Not to scale";
   $("#sk-restore").hidden = !(r && rs.hidden.size);
+  const sb = $("#sk-saveroute"); sb.hidden = !r; sb.textContent = r && rsSavedNow() ? "★ Update saved route" : "★ Save route";
 }
 function bplaceView() {
   const g = view.g, h = anchor("home");
@@ -2271,6 +2278,17 @@ const roadCls = (label, h) => /^NH-/.test(label) || h <= 1 ? "nh" : /^SH-/.test(
 const ROUTE_SPEED = { nh: 50, sh: 40, mdr: 32, other: 25 };
 const RS_OPT_COL = ["#0e6670", "#c2410c", "#7c3aed"];
 const RS_DIST_COL = ["#d9a441", "#5b9b6b", "#6a8fc7", "#c2738a", "#8f7bc7", "#c99a5b", "#4fa3a5", "#b0805a"];
+// legs between (visible) stops: distance and the main road used
+function legsFromStretches(st, lst) {
+  const legs = [];
+  for (let i = 0; i < lst.length - 1; i++) {
+    const a = lst[i].k, b2 = lst[i + 1].k, by = {};
+    for (const s2 of st) { const o = Math.max(0, Math.min(b2, s2.k1) - Math.max(a, s2.k0)); if (o > 0) by[s2.lab || ""] = (by[s2.lab || ""] || 0) + o; }
+    const lab = Object.entries(by).sort((x, y) => y[1] - x[1])[0]?.[0] || "", s2 = st.find((x) => x.lab === lab) || st[0];
+    legs.push({ km: b2 - a, road: lab, cls: s2 ? s2.cls : "other" });
+  }
+  return legs;
+}
 // turn a route into memorable stops: start, turns, district HQs, district borders, towns, end
 function routeStops(R, from, to) {
   const labels = BN.labels, pts = [];
@@ -2349,16 +2367,7 @@ function routeStops(R, from, to) {
   while (list.length > 18) { let wi = -1, ws = Infinity; for (let i = 1; i < list.length - 1; i++) { const sc = list[i].pr * 10 + Math.min(list[i].k - list[i - 1].k, list[i + 1].k - list[i].k); if (sc < ws) { ws = sc; wi = i; } } list.splice(wi, 1); }
   list.forEach((s2, i) => { s2.id = i; });
   // legs between (visible) stops: distance and the main road used
-  const legsFor = (lst) => {
-    const legs = [];
-    for (let i = 0; i < lst.length - 1; i++) {
-      const a = lst[i].k, b2 = lst[i + 1].k, by = {};
-      for (const s2 of st) { const o = Math.max(0, Math.min(b2, s2.k1) - Math.max(a, s2.k0)); if (o > 0) by[s2.lab || ""] = (by[s2.lab || ""] || 0) + o; }
-      const lab = Object.entries(by).sort((x, y) => y[1] - x[1])[0]?.[0] || "", s2 = st.find((x) => x.lab === lab) || st[0];
-      legs.push({ km: b2 - a, road: lab, cls: s2 ? s2.cls : "other" });
-    }
-    return legs;
-  };
+  const legsFor = (lst) => legsFromStretches(st, lst);
   const mins = st.reduce((t, s2) => t + s2.m / 1000 / ROUTE_SPEED[s2.cls] * 60, 0);
   return { all: list, stops: list, legs: legsFor(list), legsFor, total, mins, stretches: st, dists: distOrder, line: pts.map((p) => [p[0], p[1]]) };
 }
@@ -2451,6 +2460,40 @@ function rsAlternatives(a, b) {
   }
   return out.map((R) => ({ R, S: routeStops(R, a, b) })).sort((x, y) => x.S.total - y.S.total);
 }
+// --- saved routes: kept with your places (on this device), reopen any time, even offline ---
+let savedRoutes = [];
+const rsSig = () => rs.S && rs.from && rs.to ? `${(+rs.from.lat).toFixed(4)},${(+rs.from.lng).toFixed(4)}>${(+rs.to.lat).toFixed(4)},${(+rs.to.lng).toFixed(4)}#${rs.S.total.toFixed(1)}` : "";
+const rsSavedNow = () => savedRoutes.find((r) => r.sig === rsSig());
+async function rsSave() {
+  if (!db || !rs.S) { flash("Saving needs the page's storage. Reload and try again."); return; }
+  const S = rs.S, step = Math.max(1, Math.ceil(S.line.length / 400)), line = S.line.filter((p, i, a) => i % step === 0 || i === a.length - 1);
+  const pick = (o) => ({ name: o.name, hi: o.hi || "", sub: o.sub || "", lat: +o.lat, lng: +o.lng });
+  const rec = {
+    sig: rsSig(), title: (view.rsTitle || "").trim() || `${rs.from.name} → ${rs.to.name}`, from: pick(rs.from), to: pick(rs.to),
+    km: Math.round(S.total), mins: Math.round(S.mins), option: rs.sel + 1, options: rs.opts.length, via: rsSummary(S), hidden: [...rs.hidden],
+    S: { all: S.all, total: S.total, mins: S.mins, dists: S.dists, line, stretches: S.stretches.map(({ lab, m, h, k0, k1, cls }) => ({ lab, m, h, k0, k1, cls })) },
+    savedAt: new Date().toISOString(),
+  };
+  const old = rsSavedNow();
+  try { await db.collection("sketches").doc(old ? old.id : undefined).set(rec); flash(old ? "Saved route updated." : "Route saved. Find it under ★ Saved routes in Sketch."); }
+  catch (e) { flash(`Could not save: ${e?.message || "storage is full or blocked"}`); }
+}
+async function rsOpenSaved(id) {
+  const r = savedRoutes.find((x) => x.id === id); if (!r) return;
+  bhLayersReady().then(() => { if (view.mode === "rsketch") render(); }).catch(() => {});
+  const S = { ...r.S, legsFor: (lst) => legsFromStretches(r.S.stretches, lst) };
+  rs.from = r.from; rs.to = r.to; rs.opts = [{ R: null, S }]; rs.sel = 0; rs.R = null; rs.S = S; rs.err = "";
+  rs.hidden = new Set(r.hidden || []); rsApplyHidden();
+  go({ mode: "rsketch", rqw: null, rq: "", rsTitle: r.title });
+  if (REGION !== "bihar") await setRegion("bihar", { noFly: true });
+  setTimeout(() => map.fitBounds(L.latLngBounds(S.line).pad(0.12), { animate: false }), 30);
+}
+function rsSavedHtml() {
+  if (!savedRoutes.length) return "";
+  const open = view.rsShowSaved !== false;
+  return `<div class="rs-saved"><button class="btn" type="button" data-act="rs-saved-toggle" aria-expanded="${open}">★ Saved routes (${savedRoutes.length}) ${open ? "▴" : "▾"}</button>
+  ${open ? `<ul class="list">${savedRoutes.map((r) => `<li class="rs-srow"><button type="button" data-rsopen="${esc(r.id)}"><span class="dot" style="--c:var(--ganga)"></span><span class="nm">${esc(r.title)}<span class="sub">${r.km} km · ${fmtMins(r.mins)} · ${esc(r.via || "")} · saved ${fmtDate(String(r.savedAt).slice(0, 10))}</span></span></button>${view.rsDel === r.id ? `<span class="rs-delq">Delete? <button class="btn danger" type="button" data-rsdelyes="${esc(r.id)}">Yes</button><button class="btn" type="button" data-act="rs-delno">No</button></span>` : `<button class="rs-x" type="button" data-rsdel="${esc(r.id)}" title="Delete this saved route" aria-label="Delete ${esc(r.title)}">✕</button>`}</li>`).join("")}</ul>` : ""}</div>`;
+}
 function rsChoose(i) { rs.sel = i; rs.R = rs.opts[i].R; rs.S = rs.opts[i].S; rs.hidden = new Set(); rsApplyHidden(); }
 function rsApplyHidden() { const S = rs.S; if (!S) return; S.stops = S.all.filter((s) => !rs.hidden.has(s.id)); S.legs = S.legsFor(S.stops); if (!$("#sketch").hidden && view.mode === "rsketch") drawRouteSketch($("#sketch-canvas")); }
 function rsSummary(S) {
@@ -2484,11 +2527,13 @@ function rsView() {
   const g = S && gOn() ? gRouteBox(rs.from, rs.to) : "";
   return `<div class="row"><button class="btn" type="button" data-act="back">← All places</button><button class="btn" type="button" data-act="sk-places">Sketch of places instead</button></div>
   <div><p class="eyebrow">Route sketch</p><h2>From one place to another</h2></div>
+  ${rsSavedHtml()}
   <p class="sub-note">Anywhere in Bihar. The sketch shows the turns, the district borders you cross, the district headquarters and towns on the way, and the distance between each.</p>
   ${rsField("from", "From")}${rsField("to", "To")}
   <div class="row"><button class="btn primary" type="button" data-act="rs-go" ${!rs.from || !rs.to || rs.busy ? "disabled" : ""}>${rs.busy ? "Finding the route…" : "Find route"}</button>${rs.from && rs.to ? `<button class="btn" type="button" data-act="rs-swap">⇅ Swap</button>` : ""}${S ? `<button class="btn primary" type="button" data-act="rs-draw">Draw sketch</button>` : ""}</div>
   ${rs.err ? `<p class="notice">${esc(rs.err)}</p>` : ""}
   ${optsHtml}
+  ${S ? `<form class="edit rs-saverow" id="f-rs-save"><label for="rs-title">Name for this route<input id="rs-title" maxlength="80" value="${esc(view.rsTitle || "")}" placeholder="${esc(`${rs.from.name} → ${rs.to.name}`)}"></label><div class="row"><button class="btn primary" type="submit">${rsSavedNow() ? "★ Update saved route" : "★ Save route"}</button>${rsSavedNow() ? `<span class="sub-note">Saved ✓</span>` : ""}</div></form>` : ""}
   ${S ? `<p class="notice"><strong>${S.total.toFixed(0)} km</strong> by road · about <strong>${fmtMins(S.mins)}</strong> (our estimate from road types)</p>${distHtml}${g}<p class="sub-note">Too many points? Tap ✕ to drop any of them; the distances join up.</p>${legsHtml}<p class="sub-note">Roads from OpenStreetMap; place names from OpenStreetMap and GeoNames (CC BY 4.0). Check closures and traffic before you set out.</p>` : ""}`;
 }
 async function rsFind() {
@@ -2816,6 +2861,7 @@ $("#sketch-canvas").addEventListener("click", (e) => {
   let best = null; for (const h of rsHits) { const d = Math.hypot(h.x - x, h.y - y); if (h.kind !== "start" && h.kind !== "end" && d < 30 && (!best || d < best.d)) best = { ...h, d }; }
   if (best) { rs.hidden.add(best.id); rsApplyHidden(); render(); syncSkBar(); }
 });
+$("#sk-saveroute").onclick = () => rsSave();
 $("#sk-restore").onclick = () => { rs.hidden.clear(); rsApplyHidden(); render(); syncSkBar(); };
 $("#sk-redraw").onclick = () => { sketchSeed++; if (view.mode === "rsketch" && rs.S) drawRouteSketch($("#sketch-canvas")); else drawSketch($("#sketch-canvas")); };
 $("#sk-save").onclick = () => saveSketch();
@@ -2853,6 +2899,10 @@ function bind(panel) {
   panel.querySelectorAll("[data-rspick]").forEach((b) => b.onclick = () => { const [w, i] = b.dataset.rspick.split(":"); const h = rsCandidates(view.rq || "")[+i]; if (h) { rsPick(w, h); if (w === "from" && !rs.to) { view.rqw = "to"; render(); } } });
   panel.querySelectorAll("[data-rsedit]").forEach((b) => b.onclick = () => go({ ...view, rqw: b.dataset.rsedit, rq: "" }));
   panel.querySelectorAll("[data-rsopt]").forEach((b) => b.onclick = () => { rsChoose(+b.dataset.rsopt); render(); });
+  panel.querySelectorAll("[data-rsopen]").forEach((b) => b.onclick = () => rsOpenSaved(b.dataset.rsopen));
+  panel.querySelectorAll("[data-rsdel]").forEach((b) => b.onclick = () => go({ ...view, rsDel: b.dataset.rsdel }));
+  panel.querySelectorAll("[data-rsdelyes]").forEach((b) => b.onclick = async () => { try { await db.collection("sketches").doc(b.dataset.rsdelyes).delete(); } catch {} go({ ...view, rsDel: null }); });
+  const rsf = $("#f-rs-save", panel); if (rsf) { const ti = $("#rs-title", panel); ti.oninput = () => { view.rsTitle = ti.value; }; rsf.onsubmit = (e) => { e.preventDefault(); rsSave(); }; }
   panel.querySelectorAll("[data-rshide]").forEach((b) => b.onclick = () => { rs.hidden.add(+b.dataset.rshide); rsApplyHidden(); render(); });
   panel.querySelectorAll("[data-act]").forEach((b) => b.onclick = async () => {
     const a = b.dataset.act, p = places.find((x) => x.id === view.id);
@@ -2879,6 +2929,9 @@ function bind(panel) {
     else if (a === "rs-go") rsFind();
     else if (a === "rs-swap") { [rs.from, rs.to] = [rs.to, rs.from]; rs.R = null; rs.S = null; rsFind(); }
     else if (a === "rs-draw") openRouteSketch();
+    else if (a === "rs-saved-toggle") go({ ...view, rsShowSaved: view.rsShowSaved === false });
+    else if (a === "rs-delno") go({ ...view, rsDel: null });
+    else if (a === "offline") saveOffline(b);
     else if (a === "rs-restore") { rs.hidden.clear(); rsApplyHidden(); render(); }
     else if (a === "bp-route-from" || a === "bp-route-to") {
       const h = anchor("home"), g = view.g, here = { name: g.name, hi: g.hi, sub: g.sub, lat: g.lat, lng: g.lng }, home = h ? { name: h.name, hi: "", sub: "Your place", lat: +h.lat, lng: +h.lng } : null;
@@ -2947,6 +3000,20 @@ function bind(panel) {
       }
     } catch (err) { flash(`Could not save: ${err?.message || "try again"}`); }
   };
+}
+
+// ---------- keep every data file in the service worker's cache for offline use ----------
+async function saveOffline(btn) {
+  const files = ["index.html", "seed.json", "roads.json", "roadnet.json", "tiles.json", "satellite.json", "bihar/layers.json", "bihar/places.json", "bihar/net.json", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon.svg"];
+  if (!navigator.serviceWorker?.controller) { flash("Reload the page once, then try again (the offline helper starts on the second visit)."); return; }
+  let done = 0; btn.disabled = true;
+  for (const f of files) {
+    try { const r = await fetch(f, { cache: "reload" }); await r.arrayBuffer(); if (r.ok) done++; } catch {}
+    btn.textContent = `Downloading… ${Math.round(done / files.length * 100)}%`;
+  }
+  try { await navigator.storage?.persist?.(); } catch {}
+  btn.disabled = false; btn.textContent = "⬇ Download map data";
+  flash(done === files.length ? "All map data is on this device now. The app works without internet (except web backgrounds and Google)." : `Downloaded ${done} of ${files.length} files. Check your connection and try again.`);
 }
 
 // ---------- install as an app (Chrome shows its own prompt; iPhone uses Share → Add to Home Screen) ----------
